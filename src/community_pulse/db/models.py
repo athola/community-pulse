@@ -1,6 +1,6 @@
 """SQLAlchemy models for Community Pulse."""
 
-from datetime import datetime
+from datetime import datetime, timezone
 from typing import Any
 from uuid import uuid4
 
@@ -26,10 +26,10 @@ class Author(Base):
     external_id: Mapped[str] = mapped_column(String(255), unique=True, nullable=False)
     handle: Mapped[str] = mapped_column(String(255), nullable=False)
     first_seen_at: Mapped[datetime] = mapped_column(
-        DateTime(timezone=True), default=datetime.utcnow
+        DateTime(timezone=True), default=lambda: datetime.now(timezone.utc)
     )
     metadata_: Mapped[dict[str, Any]] = mapped_column(
-        "metadata", JSON, default=dict, nullable=False
+        "metadata", JSON, default=lambda: {}, nullable=False
     )
 
     posts: Mapped[list["Post"]] = relationship("Post", back_populates="author")
@@ -46,7 +46,7 @@ class Topic(Base):
     slug: Mapped[str] = mapped_column(String(255), unique=True, nullable=False)
     label: Mapped[str] = mapped_column(String(255), nullable=False)
     created_at: Mapped[datetime] = mapped_column(
-        DateTime(timezone=True), default=datetime.utcnow
+        DateTime(timezone=True), default=lambda: datetime.now(timezone.utc)
     )
 
     post_topics: Mapped[list["PostTopic"]] = relationship(
@@ -75,7 +75,7 @@ class Post(Base):
     posted_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), nullable=False)
     score: Mapped[int] = mapped_column(Integer, default=0)
     metadata_: Mapped[dict[str, Any]] = mapped_column(
-        "metadata", JSON, default=dict, nullable=False
+        "metadata", JSON, default=lambda: {}, nullable=False
     )
 
     author: Mapped[Author | None] = relationship("Author", back_populates="posts")
