@@ -1,5 +1,16 @@
-import { View, Text, StyleSheet, ActivityIndicator } from 'react-native';
+import { useState } from 'react';
+import {
+  View,
+  Text,
+  StyleSheet,
+  ActivityIndicator,
+  Pressable,
+  ScrollView,
+  useWindowDimensions,
+} from 'react-native';
 import { useQuery } from '@tanstack/react-query';
+import { FlowGraph } from '../components/FlowGraph';
+import { usePulseGraph } from '../hooks/usePulseGraph';
 
 const API_URL = process.env.EXPO_PUBLIC_API_URL || 'http://localhost:8000';
 
@@ -25,12 +36,24 @@ async function fetchPulse(): Promise<PulseResponse> {
   return response.json();
 }
 
+type ViewType = 'cards' | 'graph';
+
 export default function PulseScreen() {
-  const { data, isLoading, error } = useQuery({
+  const { width } = useWindowDimensions();
+  const isMobile = width < 768;
+
+  const [view, setView] = useState<ViewType>(isMobile ? 'cards' : 'graph');
+
+  const pulseQuery = useQuery({
     queryKey: ['pulse'],
     queryFn: fetchPulse,
-    refetchInterval: 30000, // Refresh every 30s
+    refetchInterval: 30000,
   });
+
+  const graphQuery = usePulseGraph();
+
+  const isLoading = pulseQuery.isLoading || graphQuery.isLoading;
+  const error = pulseQuery.error || graphQuery.error;
 
   if (isLoading) {
     return (
@@ -45,29 +68,72 @@ export default function PulseScreen() {
     return (
       <View style={styles.center}>
         <Text style={styles.errorText}>Failed to load pulse data</Text>
+        <Text style={styles.errorDetail}>{String(error)}</Text>
       </View>
     );
   }
 
   return (
     <View style={styles.container}>
-      <Text style={styles.title}>Community Pulse</Text>
-      <View style={styles.topicList}>
-        {data?.topics.map((topic) => (
-          <View key={topic.id} style={styles.topicCard}>
-            <Text style={styles.topicLabel}>{topic.label}</Text>
-            <View style={styles.metrics}>
-              <Text style={styles.score}>
-                {Math.round(topic.pulse_score * 100)}
-              </Text>
-              <Text style={styles.velocity}>
-                {topic.velocity > 1 ? '↑' : '→'}
-                {((topic.velocity - 1) * 100).toFixed(0)}%
-              </Text>
-            </View>
-          </View>
-        ))}
+      {/* View Toggle */}
+      <View style={styles.toggleContainer}>
+        <Pressable
+          style={[styles.toggleBtn, view === 'cards' && styles.toggleActive]}
+          onPress={() => setView('cards')}
+        >
+          <Text
+            style={[
+              styles.toggleText,
+              view === 'cards' && styles.toggleTextActive,
+            ]}
+          >
+            Cards
+          </Text>
+        </Pressable>
+        <Pressable
+          style={[styles.toggleBtn, view === 'graph' && styles.toggleActive]}
+          onPress={() => setView('graph')}
+        >
+          <Text
+            style={[
+              styles.toggleText,
+              view === 'graph' && styles.toggleTextActive,
+            ]}
+          >
+            Graph
+          </Text>
+        </Pressable>
       </View>
+
+      {/* Content */}
+      {view === 'cards' ? (
+        <ScrollView style={styles.scrollView}>
+          <View style={styles.topicList}>
+            {pulseQuery.data?.topics.map((topic) => (
+              <View key={topic.id} style={styles.topicCard}>
+                <Text style={styles.topicLabel}>{topic.label}</Text>
+                <View style={styles.metrics}>
+                  <Text style={styles.score}>
+                    {Math.round(topic.pulse_score * 100)}
+                  </Text>
+                  <Text style={styles.velocity}>
+                    {topic.velocity > 1 ? '↑' : '→'}
+                    {((topic.velocity - 1) * 100).toFixed(0)}%
+                  </Text>
+                </View>
+              </View>
+            ))}
+          </View>
+        </ScrollView>
+      ) : (
+        graphQuery.data && (
+          <FlowGraph
+            nodes={graphQuery.data.nodes}
+            edges={graphQuery.data.edges}
+            onNodeClick={(node) => console.log('Clicked:', node.label)}
+          />
+        )
+      )}
     </View>
   );
 }
@@ -75,7 +141,6 @@ export default function PulseScreen() {
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    padding: 16,
     backgroundColor: '#0f1419',
   },
   center: {
@@ -84,20 +149,45 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     backgroundColor: '#0f1419',
   },
-  title: {
-    fontSize: 24,
-    fontWeight: '700',
-    color: '#e2e8f0',
-    marginBottom: 20,
-  },
   loadingText: {
     color: '#94a3b8',
     marginTop: 12,
   },
   errorText: {
     color: '#f87171',
+    fontSize: 16,
+  },
+  errorDetail: {
+    color: '#94a3b8',
+    fontSize: 12,
+    marginTop: 8,
+  },
+  toggleContainer: {
+    flexDirection: 'row',
+    padding: 12,
+    gap: 8,
+  },
+  toggleBtn: {
+    paddingVertical: 8,
+    paddingHorizontal: 16,
+    borderRadius: 8,
+    backgroundColor: '#1a1f26',
+  },
+  toggleActive: {
+    backgroundColor: '#22d3ee',
+  },
+  toggleText: {
+    color: '#94a3b8',
+    fontWeight: '600',
+  },
+  toggleTextActive: {
+    color: '#0f1419',
+  },
+  scrollView: {
+    flex: 1,
   },
   topicList: {
+    padding: 16,
     gap: 12,
   },
   topicCard: {
