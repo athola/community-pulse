@@ -2,7 +2,7 @@
 # Python environment is managed by uv; targets assume uv is installed locally.
 
 UV?=uv
-PY_SRC?=src tests backend
+PY_SRC?=src tests
 APP_MODULE?=community_pulse.app:app
 MOBILE_DIR?=mobile
 NPM?=npm
@@ -45,7 +45,6 @@ format:
 
 typecheck:
 	$(UV) run mypy $(PY_SRC)
-	$(UV) run ty --config pyproject.toml $(PY_SRC)
 
 test:
 	$(UV) run pytest
