@@ -1,4 +1,6 @@
 # render.yaml
+# Database: Use Supabase free tier (includes pg_graphql)
+# Set DATABASE_URL in Render dashboard from Supabase connection string
 services:
   - type: web
     name: community-pulse-api
@@ -8,9 +10,7 @@ services:
     startCommand: uv run uvicorn community_pulse.api.app:app --host 0.0.0.0 --port $PORT
     envVars:
       - key: DATABASE_URL
-        fromDatabase:
-          name: community-pulse-db
-          property: connectionString
+        sync: false  # Set manually from Supabase connection string
       - key: PYTHON_VERSION
         value: "3.12"
     plan: free
@@ -30,8 +30,3 @@ services:
         name: Cache-Control
         value: no-cache
     plan: free
-
-databases:
-  - name: community-pulse-db
-    plan: free
-    postgresMajorVersion: 16
