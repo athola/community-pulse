@@ -113,6 +113,10 @@ check_untyped_defs = false
 disallow_untyped_decorators = false
 warn_return_any = false
 
+[[tool.mypy.overrides]]
+module = ["seed_db"]
+ignore_missing_imports = true
+
 [tool.uv]
 default-groups = ["dev"]
 
