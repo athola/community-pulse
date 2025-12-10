@@ -11,6 +11,7 @@ from community_pulse.analysis.graph import (
 from community_pulse.analysis.velocity import compute_pulse_score
 from community_pulse.ingest.topic_extractor import extract_topics
 from community_pulse.plugins.base import DataSourcePlugin, RawPost
+from community_pulse.plugins.hackernews import HackerNewsPlugin
 
 
 @dataclass
@@ -42,17 +43,7 @@ class ComputedTopic:
 
 
 class PulseComputeService:
-    """Service to compute pulse scores from any community data source.
-
-    Uses the plugin system to fetch data, then runs the core analysis:
-    1. Extract topics from posts
-    2. Build co-occurrence graph
-    3. Compute centrality metrics
-    4. Calculate pulse scores using weighted formula
-    5. Compare to simple mention-count ranking
-
-    The algorithm is identical regardless of data source.
-    """
+    """Service to compute pulse scores from any community data source."""
 
     # Topic slug to human-readable label
     TOPIC_LABELS = {
@@ -73,14 +64,10 @@ class PulseComputeService:
         self.plugin = plugin
         self.num_posts = num_posts
 
-    def compute_pulse(self) -> list[ComputedTopic]:  # noqa: PLR0912
-        """Compute pulse scores from the configured data source."""
-        # Step 1: Fetch posts via plugin
-        posts = self.plugin.fetch_posts(limit=self.num_posts)
-        if not posts:
-            return []
-
-        # Step 2: Extract topics from each post
+    def _extract_topics_from_posts(
+        self, posts: list[RawPost]
+    ) -> tuple[dict[str, list[tuple[RawPost, float]]], dict[str, set[str]]]:
+        """Extract topics from posts and track authors."""
         topic_posts: dict[str, list[tuple[RawPost, float]]] = defaultdict(list)
         topic_authors: dict[str, set[str]] = defaultdict(set)
 
@@ -90,10 +77,14 @@ class PulseComputeService:
                 topic_posts[slug].append((post, relevance))
                 topic_authors[slug].add(post.author)
 
-        if not topic_posts:
-            return []
+        return topic_posts, topic_authors
 
-        # Step 3: Build co-occurrence graph
+    def _build_cooccurrence_graph(
+        self,
+        topic_posts: dict[str, list[tuple[RawPost, float]]],
+        topic_authors: dict[str, set[str]],
+    ) -> list[TopicGraphData]:
+        """Build co-occurrence graph data from topic posts."""
         cooccurrence: dict[tuple[str, str], int] = defaultdict(int)
         post_topics: dict[str, list[str]] = defaultdict(list)
 
@@ -109,7 +100,6 @@ class PulseComputeService:
                     )
                     cooccurrence[key] += 1
 
-        # Build graph data
         graph_data = []
         for (topic_a, topic_b), count in cooccurrence.items():
             shared_authors = topic_authors[topic_a] & topic_authors[topic_b]
@@ -122,11 +112,35 @@ class PulseComputeService:
                 )
             )
 
-        # Step 4: Compute centrality
+        return graph_data
+
+    def _assign_ranks(self, topics: list[ComputedTopic]) -> list[ComputedTopic]:
+        """Assign both mention and pulse ranks to topics."""
+        by_mentions = sorted(topics, key=lambda t: t.mention_count, reverse=True)
+        for i, topic in enumerate(by_mentions):
+            topic.mention_rank = i + 1
+
+        by_pulse = sorted(topics, key=lambda t: t.pulse_score, reverse=True)
+        for i, topic in enumerate(by_pulse):
+            topic.pulse_rank = i + 1
+
+        return by_pulse
+
+    def compute_pulse(self) -> list[ComputedTopic]:
+        """Compute pulse scores from the configured data source."""
+        posts = self.plugin.fetch_posts(limit=self.num_posts)
+        if not posts:
+            return []
+
+        topic_posts, topic_authors = self._extract_topics_from_posts(posts)
+        if not topic_posts:
+            return []
+
+        graph_data = self._build_cooccurrence_graph(topic_posts, topic_authors)
+
         graph, node_indices = build_topic_graph(graph_data)
         centrality_by_idx = compute_centrality(graph)
 
-        # Map node indices back to topic slugs
         idx_to_topic = {idx: slug for slug, idx in node_indices.items()}
         centrality = {
             idx_to_topic[idx]: metrics
@@ -134,7 +148,6 @@ class PulseComputeService:
             if idx in idx_to_topic
         }
 
-        # Step 5: Compute pulse scores
         max_authors = len({p.author for p in posts})
         computed_topics: list[ComputedTopic] = []
 
@@ -142,17 +155,13 @@ class PulseComputeService:
             mention_count = len(post_list)
             unique_authors = len(topic_authors[slug])
 
-            # Get centrality (default 0 if topic not in graph)
             topic_centrality = centrality.get(slug, {})
             eigenvector = topic_centrality.get("eigenvector", 0.0)
             betweenness = topic_centrality.get("betweenness", 0.0)
 
-            # Velocity: for POC, use mention count relative to average
-            # In production, would compare to historical baseline
             avg_mentions = len(posts) / max(len(topic_posts), 1)
             velocity = mention_count / max(avg_mentions, 1)
 
-            # Compute pulse score using our formula
             pulse = compute_pulse_score(
                 velocity=velocity,
                 eigenvector_centrality=eigenvector,
@@ -161,7 +170,6 @@ class PulseComputeService:
                 max_authors=max(max_authors, 1),
             )
 
-            # Get sample posts (top by score)
             sorted_posts = sorted(post_list, key=lambda x: x[0].score, reverse=True)
             sample_posts = [
                 SamplePostData(
@@ -187,18 +195,7 @@ class PulseComputeService:
                 )
             )
 
-        # Step 6: Rank by both methods for comparison
-        by_mentions = sorted(
-            computed_topics, key=lambda t: t.mention_count, reverse=True
-        )
-        for i, topic in enumerate(by_mentions):
-            topic.mention_rank = i + 1
-
-        by_pulse = sorted(computed_topics, key=lambda t: t.pulse_score, reverse=True)
-        for i, topic in enumerate(by_pulse):
-            topic.pulse_rank = i + 1
-
-        return by_pulse
+        return self._assign_ranks(computed_topics)
 
 
 def compute_live_pulse(
@@ -207,11 +204,6 @@ def compute_live_pulse(
 ) -> list[ComputedTopic]:
     """Compute live pulse scores from a data source."""
     if plugin is None:
-        # Lazy import to avoid circular dependency
-        from community_pulse.plugins.hackernews import (  # noqa: PLC0415
-            HackerNewsPlugin,
-        )
-
         plugin = HackerNewsPlugin()
 
     service = PulseComputeService(plugin=plugin, num_posts=num_stories)

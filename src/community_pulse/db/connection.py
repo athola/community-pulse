@@ -7,8 +7,15 @@ from sqlalchemy import create_engine
 from sqlalchemy.engine import Engine
 from sqlalchemy.orm import Session, sessionmaker
 
-_engine: Engine | None = None
-_SessionLocal: sessionmaker[Session] | None = None
+
+class _ConnectionState:
+    """Module-level connection state container."""
+
+    engine: Engine | None = None
+    session_factory: sessionmaker[Session] | None = None
+
+
+_state = _ConnectionState()
 
 
 def get_database_url() -> str:
@@ -21,18 +28,16 @@ def get_database_url() -> str:
 
 def get_engine() -> Engine:
     """Get or create SQLAlchemy engine."""
-    global _engine  # noqa: PLW0603
-    if _engine is None:
-        _engine = create_engine(get_database_url(), pool_pre_ping=True)
-    return _engine
+    if _state.engine is None:
+        _state.engine = create_engine(get_database_url(), pool_pre_ping=True)
+    return _state.engine
 
 
 def get_session() -> Generator[Session, None, None]:
     """Yield a database session."""
-    global _SessionLocal  # noqa: PLW0603
-    if _SessionLocal is None:
-        _SessionLocal = sessionmaker(bind=get_engine(), expire_on_commit=False)
-    session = _SessionLocal()
+    if _state.session_factory is None:
+        _state.session_factory = sessionmaker(bind=get_engine(), expire_on_commit=False)
+    session = _state.session_factory()
     try:
         yield session
     finally:
