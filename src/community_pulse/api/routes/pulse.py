@@ -4,6 +4,7 @@ from datetime import datetime, timezone
 from uuid import uuid4
 
 from fastapi import APIRouter, Query
+from pydantic import BaseModel
 
 from community_pulse.models.pulse import (
     ClusterInfo,
@@ -13,6 +14,13 @@ from community_pulse.models.pulse import (
     TopicEdge,
     TopicNode,
 )
+from community_pulse.services.pulse_compute import compute_live_pulse
+
+# Constants for ranking difference thresholds
+SIGNIFICANT_RANK_DIFF = 2
+HIGH_VELOCITY_THRESHOLD = 1.5
+HIGH_CENTRALITY_THRESHOLD = 0.3
+DIVERSE_AUTHORS_THRESHOLD = 5
 
 router = APIRouter(prefix="/pulse", tags=["pulse"])
 
@@ -212,4 +220,190 @@ async def get_pulse_graph(
             )
         ],
         captured_at=datetime.now(timezone.utc),
+    )
+
+
+# =============================================================================
+# LIVE ENDPOINTS - Real data from HN API with computed pulse scores
+# =============================================================================
+
+
+class LiveTopicResponse(BaseModel):
+    """A topic with real computed metrics."""
+
+    slug: str
+    label: str
+    pulse_score: float
+    velocity: float
+    mention_count: int
+    unique_authors: int
+    centrality: float
+    pulse_rank: int
+    mention_rank: int
+    rank_difference: int  # positive = pulse ranks higher than mentions
+    sample_posts: list[SamplePost]
+
+
+class LivePulseResponse(BaseModel):
+    """Response with real computed pulse data."""
+
+    topics: list[LiveTopicResponse]
+    stories_analyzed: int
+    captured_at: datetime
+    hypothesis_evidence: str  # Explanation of ranking differences
+
+
+class RankComparisonResponse(BaseModel):
+    """Side-by-side comparison of pulse vs mention ranking."""
+
+    pulse_ranking: list[str]  # slugs in pulse order
+    mention_ranking: list[str]  # slugs in mention order
+    differences: list[dict]  # topics where rankings differ significantly
+    hypothesis_supported: bool
+    explanation: str
+
+
+@router.get("/live", response_model=LivePulseResponse)
+async def get_live_pulse(
+    num_stories: int = Query(100, le=200, description="HN stories to analyze"),
+) -> LivePulseResponse:
+    """Get REAL pulse scores computed from live Hacker News data."""
+    computed = compute_live_pulse(num_stories=num_stories)
+
+    if not computed:
+        return LivePulseResponse(
+            topics=[],
+            stories_analyzed=0,
+            captured_at=datetime.now(timezone.utc),
+            hypothesis_evidence="No topics found in analyzed stories.",
+        )
+
+    # Convert to response format
+    topics = []
+    rank_diffs = []
+    for t in computed:
+        rank_diff = t.mention_rank - t.pulse_rank  # positive = pulse ranks higher
+        rank_diffs.append((t.slug, rank_diff))
+        topics.append(
+            LiveTopicResponse(
+                slug=t.slug,
+                label=t.label,
+                pulse_score=round(t.pulse_score, 3),
+                velocity=round(t.velocity, 2),
+                mention_count=t.mention_count,
+                unique_authors=t.unique_authors,
+                centrality=round(t.centrality, 3),
+                pulse_rank=t.pulse_rank,
+                mention_rank=t.mention_rank,
+                rank_difference=rank_diff,
+                sample_posts=[
+                    SamplePost(
+                        id=p.id,
+                        title=p.title,
+                        url=p.url,
+                        score=p.score,
+                        comment_count=p.comment_count,
+                    )
+                    for p in t.sample_posts
+                ],
+            )
+        )
+
+    # Generate hypothesis evidence
+    significant_diffs = [
+        d for d in rank_diffs if abs(d[1]) >= SIGNIFICANT_RANK_DIFF
+    ]
+    if significant_diffs:
+        boosted = [f"{s} (+{d})" for s, d in significant_diffs if d > 0]
+        demoted = [f"{s} ({d})" for s, d in significant_diffs if d < 0]
+        evidence_parts = []
+        if boosted:
+            evidence_parts.append(f"Pulse boosted: {', '.join(boosted)}")
+        if demoted:
+            evidence_parts.append(f"Pulse demoted: {', '.join(demoted)}")
+        evidence = " | ".join(evidence_parts)
+    else:
+        evidence = "Rankings similar - may need more data or different time window."
+
+    return LivePulseResponse(
+        topics=topics,
+        stories_analyzed=num_stories,
+        captured_at=datetime.now(timezone.utc),
+        hypothesis_evidence=evidence,
+    )
+
+
+@router.get("/live/compare", response_model=RankComparisonResponse)
+async def compare_rankings(
+    num_stories: int = Query(100, le=200, description="HN stories to analyze"),
+) -> RankComparisonResponse:
+    """Compare pulse ranking vs simple mention-count ranking."""
+    computed = compute_live_pulse(num_stories=num_stories)
+
+    if not computed:
+        return RankComparisonResponse(
+            pulse_ranking=[],
+            mention_ranking=[],
+            differences=[],
+            hypothesis_supported=False,
+            explanation="No topics found to compare.",
+        )
+
+    # Get both rankings
+    pulse_ranking = [t.slug for t in computed]  # already sorted by pulse
+    mention_ranking = [
+        t.slug for t in sorted(computed, key=lambda x: x.mention_count, reverse=True)
+    ]
+
+    # Find significant differences
+    differences = []
+    for t in computed:
+        diff = t.mention_rank - t.pulse_rank
+        if abs(diff) >= SIGNIFICANT_RANK_DIFF:
+            reason = []
+            if t.velocity > HIGH_VELOCITY_THRESHOLD:
+                reason.append(f"high velocity ({t.velocity:.1f}x)")
+            if t.centrality > HIGH_CENTRALITY_THRESHOLD:
+                reason.append(f"high centrality ({t.centrality:.2f})")
+            if t.unique_authors > DIVERSE_AUTHORS_THRESHOLD:
+                reason.append(f"diverse authors ({t.unique_authors})")
+
+            differences.append(
+                {
+                    "topic": t.slug,
+                    "pulse_rank": t.pulse_rank,
+                    "mention_rank": t.mention_rank,
+                    "change": diff,
+                    "direction": "boosted" if diff > 0 else "demoted",
+                    "reasons": reason or ["combined signal effect"],
+                }
+            )
+
+    # Determine if hypothesis is supported
+    hypothesis_supported = len(differences) > 0 or pulse_ranking != mention_ranking
+
+    if hypothesis_supported:
+        if differences:
+            explanation = (
+                f"Rankings differ significantly for {len(differences)} topic(s). "
+                f"Our algorithm surfaces topics based on velocity + convergence, "
+                f"not just raw mention counts."
+            )
+        else:
+            explanation = (
+                "Rankings show minor differences, indicating our weighted formula "
+                "adjusts priorities even when mention counts are similar."
+            )
+    else:
+        explanation = (
+            "Rankings are identical. This could mean: (1) mention count "
+            "dominates, (2) need larger sample, or (3) uniform distribution."
+        )
+
+    return RankComparisonResponse(
+        pulse_ranking=pulse_ranking,
+        mention_ranking=mention_ranking,
+        differences=differences,
+        hypothesis_supported=hypothesis_supported,
+        explanation=explanation,
     )
