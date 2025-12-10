@@ -1,0 +1,37 @@
+# render.yaml
+services:
+  - type: web
+    name: community-pulse-api
+    runtime: python
+    repo: https://github.com/athola/community-pulse
+    buildCommand: pip install uv && uv sync --frozen --no-dev
+    startCommand: uv run uvicorn community_pulse.api.app:app --host 0.0.0.0 --port $PORT
+    envVars:
+      - key: DATABASE_URL
+        fromDatabase:
+          name: community-pulse-db
+          property: connectionString
+      - key: PYTHON_VERSION
+        value: "3.12"
+    plan: free
+
+  - type: web
+    name: community-pulse-web
+    runtime: static
+    repo: https://github.com/athola/community-pulse
+    rootDir: frontend
+    buildCommand: npm install && npx expo export -p web
+    staticPublishPath: dist
+    envVars:
+      - key: EXPO_PUBLIC_API_URL
+        value: https://community-pulse-api.onrender.com
+    headers:
+      - path: /*
+        name: Cache-Control
+        value: no-cache
+    plan: free
+
+databases:
+  - name: community-pulse-db
+    plan: free
+    postgresMajorVersion: 16
