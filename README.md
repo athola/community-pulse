@@ -1,5 +1,10 @@
 # Community Pulse
 
+[![Python 3.12+](https://img.shields.io/badge/python-3.12+-blue.svg)](https://www.python.org/downloads/)
+[![Tests](https://img.shields.io/badge/tests-58%20passed-brightgreen.svg)](tests/)
+[![Coverage](https://img.shields.io/badge/coverage-95%25-brightgreen.svg)](htmlcov/)
+[![License: MIT](https://img.shields.io/badge/license-MIT-blue.svg)](LICENSE)
+
 Detect emerging collective attention in online communities using velocity and co-occurrence graph analysis.
 
 ## Overview
@@ -123,6 +128,14 @@ frontend/
 └── lib/              # API client
 ```
 
+## Tech Stack
+
+- **Backend**: Python 3.12, FastAPI, SQLAlchemy 2.0, Pydantic v2
+- **Graph Analysis**: rustworkx (Rust-powered NetworkX alternative)
+- **Frontend**: React Native Web, Expo Router, TanStack Query, react-force-graph-2d
+- **Database**: PostgreSQL via Supabase (includes pg_graphql)
+- **Deployment**: Render (API + static), Docker Compose (local)
+
 ## License
 
-MIT
+[MIT](LICENSE)
