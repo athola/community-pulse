@@ -5,6 +5,16 @@ from datetime import datetime
 from pydantic import BaseModel, Field
 
 
+class SamplePost(BaseModel):
+    """A sample post for engagement - links to real content."""
+
+    id: str
+    title: str
+    url: str  # Direct link to HN discussion
+    score: int = Field(default=0, ge=0)
+    comment_count: int = Field(default=0, ge=0)
+
+
 class TopicNode(BaseModel):
     """A topic node in the pulse graph."""
 
@@ -16,6 +26,7 @@ class TopicNode(BaseModel):
     centrality: float = Field(default=0.0, ge=0, le=1)
     mention_count: int = Field(default=0, ge=0)
     unique_authors: int = Field(default=0, ge=0)
+    sample_posts: list[SamplePost] = Field(default_factory=list)
 
 
 class TopicEdge(BaseModel):

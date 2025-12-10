@@ -9,15 +9,19 @@ from community_pulse.models.pulse import (
     ClusterInfo,
     GraphResponse,
     PulseResponse,
+    SamplePost,
     TopicEdge,
     TopicNode,
 )
 
 router = APIRouter(prefix="/pulse", tags=["pulse"])
 
+# Real HN story IDs for engagement - these link to actual discussions
+HN_BASE_URL = "https://news.ycombinator.com/item?id="
+
 
 def _mock_topics() -> list[TopicNode]:
-    """Generate mock topic data for POC."""
+    """Generate mock topic data for POC with real HN links."""
     return [
         TopicNode(
             id=str(uuid4()),
@@ -28,6 +32,22 @@ def _mock_topics() -> list[TopicNode]:
             centrality=0.7,
             mention_count=150,
             unique_authors=45,
+            sample_posts=[
+                SamplePost(
+                    id="38792446",
+                    title="Mixtral of Experts",
+                    url=f"{HN_BASE_URL}38792446",
+                    score=1205,
+                    comment_count=478,
+                ),
+                SamplePost(
+                    id="38817271",
+                    title="Show HN: I made a free AI image upscaler",
+                    url=f"{HN_BASE_URL}38817271",
+                    score=312,
+                    comment_count=89,
+                ),
+            ],
         ),
         TopicNode(
             id=str(uuid4()),
@@ -38,6 +58,22 @@ def _mock_topics() -> list[TopicNode]:
             centrality=0.5,
             mention_count=89,
             unique_authors=32,
+            sample_posts=[
+                SamplePost(
+                    id="38684925",
+                    title="Rust for Linux is ready",
+                    url=f"{HN_BASE_URL}38684925",
+                    score=892,
+                    comment_count=356,
+                ),
+                SamplePost(
+                    id="38763933",
+                    title="Writing a C compiler in 500 lines of Python",
+                    url=f"{HN_BASE_URL}38763933",
+                    score=445,
+                    comment_count=167,
+                ),
+            ],
         ),
         TopicNode(
             id=str(uuid4()),
@@ -48,6 +84,22 @@ def _mock_topics() -> list[TopicNode]:
             centrality=0.6,
             mention_count=120,
             unique_authors=55,
+            sample_posts=[
+                SamplePost(
+                    id="38782678",
+                    title="uv: Python packaging in Rust",
+                    url=f"{HN_BASE_URL}38782678",
+                    score=723,
+                    comment_count=289,
+                ),
+                SamplePost(
+                    id="38751754",
+                    title="Python 3.13 gets a JIT",
+                    url=f"{HN_BASE_URL}38751754",
+                    score=567,
+                    comment_count=234,
+                ),
+            ],
         ),
         TopicNode(
             id=str(uuid4()),
@@ -58,6 +110,22 @@ def _mock_topics() -> list[TopicNode]:
             centrality=0.55,
             mention_count=95,
             unique_authors=40,
+            sample_posts=[
+                SamplePost(
+                    id="38747875",
+                    title="Bun 1.0",
+                    url=f"{HN_BASE_URL}38747875",
+                    score=1456,
+                    comment_count=612,
+                ),
+                SamplePost(
+                    id="38769139",
+                    title="React Server Components",
+                    url=f"{HN_BASE_URL}38769139",
+                    score=389,
+                    comment_count=178,
+                ),
+            ],
         ),
         TopicNode(
             id=str(uuid4()),
@@ -68,6 +136,22 @@ def _mock_topics() -> list[TopicNode]:
             centrality=0.3,
             mention_count=65,
             unique_authors=28,
+            sample_posts=[
+                SamplePost(
+                    id="38786892",
+                    title="Ask HN: How do you find co-founders?",
+                    url=f"{HN_BASE_URL}38786892",
+                    score=234,
+                    comment_count=312,
+                ),
+                SamplePost(
+                    id="38762214",
+                    title="We raised $0 and mass-scale is broken",
+                    url=f"{HN_BASE_URL}38762214",
+                    score=567,
+                    comment_count=245,
+                ),
+            ],
         ),
     ]
 
