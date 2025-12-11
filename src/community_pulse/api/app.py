@@ -35,7 +35,7 @@ def create_app() -> FastAPI:
         allow_credentials = True
 
     app.add_middleware(
-        CORSMiddleware,  # type: ignore[arg-type]
+        CORSMiddleware,  # type: ignore[arg-type]  # starlette typing issue
         allow_origins=allowed_origins,
         allow_credentials=allow_credentials,
         allow_methods=["*"],

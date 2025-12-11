@@ -2,7 +2,7 @@ name: Deploy to Supabase
 
 on:
   push:
-    branches: [main]
+    branches: [master]
 
 env:
   SUPABASE_ACCESS_TOKEN: ${{ secrets.SUPABASE_ACCESS_TOKEN }}

@@ -4,6 +4,7 @@ import json
 from dataclasses import dataclass
 from datetime import datetime, timezone
 from pathlib import Path
+from typing import Any
 
 
 @dataclass
@@ -22,7 +23,7 @@ class HNItem:
     kids: list[int]
 
 
-def parse_hn_item(data: dict) -> HNItem | None:
+def parse_hn_item(data: dict[str, Any]) -> HNItem | None:
     """Parse a raw HN API response into an HNItem."""
     if not data or data.get("deleted") or data.get("dead"):
         return None

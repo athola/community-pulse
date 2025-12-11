@@ -47,7 +47,7 @@ addopts = [
     "--cov-report=term-missing",
     "--cov-report=html:htmlcov",
     "--cov-report=xml",
-    "--cov-fail-under=0",  # TODO: Increase to 85 as codebase grows
+    "--cov-fail-under=85",
 ]
 markers = [
     "unit: Unit tests for individual components",

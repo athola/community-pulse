@@ -3,7 +3,7 @@
 from abc import abstractmethod
 from dataclasses import dataclass
 from datetime import datetime
-from typing import Protocol, runtime_checkable
+from typing import Any, Protocol, runtime_checkable
 
 
 @dataclass
@@ -22,7 +22,7 @@ class RawPost:
     score: int
     comment_count: int
     posted_at: datetime | None = None
-    metadata: dict | None = None  # Platform-specific extra data
+    metadata: dict[str, Any] | None = None  # Platform-specific extra data
 
 
 @runtime_checkable

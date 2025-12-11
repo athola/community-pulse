@@ -151,7 +151,7 @@ class HackerNewsPlugin:
 
         return result
 
-    def _fetch_item(self, item_id: int) -> dict | None:
+    def _fetch_item(self, item_id: int) -> dict[str, Any] | None:
         """Fetch a single HN item by ID.
 
         Results are cached for item_cache_ttl seconds (default: 120).
@@ -174,7 +174,7 @@ class HackerNewsPlugin:
         try:
             resp = self.client.get(f"{HN_API_BASE}/item/{item_id}.json")
             resp.raise_for_status()
-            result: dict = resp.json()
+            result: dict[str, Any] = resp.json()
 
             # Store in cache
             self._set_cached(cache_key, result)

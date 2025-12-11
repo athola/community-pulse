@@ -1,6 +1,7 @@
 """Pydantic models for pulse API responses."""
 
 from datetime import datetime
+from typing import Any
 
 from pydantic import BaseModel, Field
 
@@ -132,7 +133,7 @@ class RankComparisonResponse(BaseModel):
 
     pulse_ranking: list[str] = Field(description="Topic slugs in pulse score order")
     mention_ranking: list[str] = Field(description="Topic slugs in mention count order")
-    differences: list[dict] = Field(
+    differences: list[dict[str, Any]] = Field(
         description="Topics with significant rank differences"
     )
     hypothesis_supported: bool = Field(
