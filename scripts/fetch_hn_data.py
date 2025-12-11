@@ -3,7 +3,6 @@
 
 import asyncio
 import json
-from datetime import datetime, timezone
 from pathlib import Path
 
 import httpx
@@ -31,9 +30,7 @@ async def fetch_top_stories(client: httpx.AsyncClient, limit: int = 100) -> list
 
 
 async def fetch_with_comments(
-    client: httpx.AsyncClient,
-    story_id: int,
-    max_comments: int = 20
+    client: httpx.AsyncClient, story_id: int, max_comments: int = 20
 ) -> list[dict]:
     """Fetch a story and its top comments."""
     items = []
@@ -62,7 +59,7 @@ async def main() -> None:
 
         all_items = []
         for i, story_id in enumerate(story_ids):
-            print(f"Fetching story {i+1}/{len(story_ids)}: {story_id}")
+            print(f"Fetching story {i + 1}/{len(story_ids)}: {story_id}")
             items = await fetch_with_comments(client, story_id, max_comments=10)
             all_items.extend(items)
             await asyncio.sleep(0.1)  # Be nice to the API

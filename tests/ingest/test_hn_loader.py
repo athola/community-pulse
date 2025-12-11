@@ -71,8 +71,7 @@ def test_extract_topics_multiple() -> None:
 def test_extract_keywords() -> None:
     """Test keyword extraction."""
     text = (
-        "Python is great for machine learning. "
-        "Python also works well with databases."
+        "Python is great for machine learning. Python also works well with databases."
     )
     keywords = extract_keywords(text, top_n=3)
     assert "python" in keywords

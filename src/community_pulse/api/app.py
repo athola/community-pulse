@@ -1,5 +1,7 @@
 """FastAPI application factory."""
 
+import os
+
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 
@@ -14,11 +16,28 @@ def create_app() -> FastAPI:
         version="0.1.0",
     )
 
-    # CORS for frontend
+    # CORS configuration: read from CORS_ORIGINS environment variable (comma-separated)
+    # Defaults to localhost development ports if not set
+    # Only use ["*"] if CORS_ORIGINS is explicitly set to "*"
+    cors_origins_env = os.getenv("CORS_ORIGINS", "")
+    if cors_origins_env == "*":
+        allowed_origins = ["*"]
+        allow_credentials = False  # Disable credentials for wildcard
+    elif cors_origins_env:
+        allowed_origins = [origin.strip() for origin in cors_origins_env.split(",")]
+        allow_credentials = True
+    else:
+        allowed_origins = [
+            "http://localhost:3000",
+            "http://localhost:8081",
+            "http://localhost:19006",
+        ]
+        allow_credentials = True
+
     app.add_middleware(
-        CORSMiddleware,
-        allow_origins=["*"],  # Configure properly in production
-        allow_credentials=True,
+        CORSMiddleware,  # type: ignore[arg-type]
+        allow_origins=allowed_origins,
+        allow_credentials=allow_credentials,
         allow_methods=["*"],
         allow_headers=["*"],
     )

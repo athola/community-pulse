@@ -85,30 +85,34 @@ flowchart TB
 
 ### The Pulse Score Formula
 
-Community Pulse combines four signals into a single **Pulse Score** (0-100):
+Community Pulse combines five signals into a single **Pulse Score** (0-100):
 
 ```mermaid
 pie title Pulse Score Composition
-    "Velocity" : 30
-    "Convergence" : 30
-    "Network Flow" : 25
+    "Velocity" : 25
+    "Eigenvector Centrality" : 25
+    "Betweenness Centrality" : 20
+    "PageRank" : 15
     "Author Diversity" : 15
 ```
 
 | Signal | Weight | What It Measures |
 |--------|--------|------------------|
-| **Velocity** | 30% | How fast is this topic accelerating? |
-| **Convergence** | 30% | Are independent voices clustering on this? |
-| **Network Flow** | 25% | Is this topic a bridge between communities? |
+| **Velocity** | 25% | How fast is this topic accelerating? |
+| **Eigenvector Centrality** | 25% | Connection to other important topics |
+| **Betweenness Centrality** | 20% | Is this topic a bridge between communities? |
+| **PageRank** | 15% | Flow-based influence and authority |
 | **Author Diversity** | 15% | How many unique voices are contributing? |
 
 ### Why These Signals Matter
 
 **Velocity** catches momentum—a topic mentioned 10x more than last week is accelerating.
 
-**Convergence** identifies organic emergence—when multiple unconnected authors independently start discussing the same thing, that's a genuine signal, not just one person's campaign.
+**Eigenvector Centrality** identifies convergence—topics connected to other important topics are themselves important, capturing organic emergence patterns.
 
-**Network Flow** reveals influence—topics that connect otherwise separate discussion clusters often indicate paradigm shifts.
+**Betweenness Centrality** reveals bridges—topics that connect otherwise separate discussion clusters often indicate paradigm shifts.
+
+**PageRank** measures authority—flow-based influence that accounts for how attention propagates through the topic network.
 
 **Author Diversity** filters noise—topics discussed by many different people carry more weight than one person posting repeatedly.
 

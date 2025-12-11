@@ -11,9 +11,10 @@ Detect emerging collective attention in online communities using velocity and co
 
 Community Pulse identifies trending topics by analyzing the "pulse" of community discussions. It combines multiple signals:
 
-- **Velocity (30%)** - Rate of change in topic mentions
-- **Convergence (30%)** - Multiple independent voices clustering on the same signal (eigenvector centrality)
-- **Relational (25%)** - Information flow through community network (betweenness centrality)
+- **Velocity (25%)** - Rate of change in topic mentions
+- **Eigenvector Centrality (25%)** - Connection to other important topics (convergence)
+- **Betweenness Centrality (20%)** - Bridge topics connecting different communities
+- **PageRank (15%)** - Flow-based influence and authority in the topic graph
 - **Author Spread (15%)** - Diversity of contributors discussing the topic
 
 ## Architecture

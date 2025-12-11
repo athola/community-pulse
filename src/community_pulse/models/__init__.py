@@ -2,7 +2,10 @@
 
 from community_pulse.models.pulse import (
     GraphResponse,
+    LivePulseResponse,
+    LiveTopicResponse,
     PulseResponse,
+    RankComparisonResponse,
     SamplePost,
     TopicEdge,
     TopicHistory,
@@ -11,7 +14,10 @@ from community_pulse.models.pulse import (
 
 __all__ = [
     "GraphResponse",
+    "LivePulseResponse",
+    "LiveTopicResponse",
     "PulseResponse",
+    "RankComparisonResponse",
     "SamplePost",
     "TopicEdge",
     "TopicHistory",

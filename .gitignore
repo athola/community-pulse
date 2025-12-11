@@ -54,3 +54,6 @@ npm-debug.log*
 
 # Worktrees
 .worktrees/
+
+# Generated assets
+docs/*.pdf

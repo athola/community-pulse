@@ -11,7 +11,11 @@ from sqlalchemy.orm import sessionmaker
 # Import the functions we'll test
 sys.path.insert(0, str(Path(__file__).parent.parent.parent / "scripts"))
 # ruff: noqa: E402
-from seed_db import get_or_create_author, get_or_create_topic, seed_database
+from seed_db import (  # type: ignore[import-not-found]
+    get_or_create_author,
+    get_or_create_topic,
+    seed_database,
+)
 
 from community_pulse.db.models import Author, Base, Post, Topic
 

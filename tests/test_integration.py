@@ -80,9 +80,7 @@ class TestHNDataLoading:
             {"id": 4, "type": "job"},  # Should be filtered out
         ]
 
-        with tempfile.NamedTemporaryFile(
-            mode="w", suffix=".json", delete=False
-        ) as f:
+        with tempfile.NamedTemporaryFile(mode="w", suffix=".json", delete=False) as f:
             json.dump(test_data, f)
             temp_path = Path(f.name)
 
@@ -430,9 +428,7 @@ class TestFullStackIntegration:
         ]
 
         # Step 2: Load and parse HN items
-        with tempfile.NamedTemporaryFile(
-            mode="w", suffix=".json", delete=False
-        ) as f:
+        with tempfile.NamedTemporaryFile(mode="w", suffix=".json", delete=False) as f:
             json.dump(test_data, f)
             temp_path = Path(f.name)
 

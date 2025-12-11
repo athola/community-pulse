@@ -1,4 +1,47 @@
-"""SQLAlchemy models for Community Pulse."""
+"""SQLAlchemy models for Community Pulse.
+
+FUTURE EXPANSION: Data Persistence Schema
+------------------------------------------
+These models define the database schema for storing community data, but are NOT
+currently used in the POC implementation. The POC operates entirely in-memory,
+fetching live data from Hacker News API without persistence.
+
+Schema Design Philosophy:
+    1. Normalized: Separate tables for Authors, Posts, Topics with proper foreign keys
+    2. Flexible: JSON metadata columns for platform-specific attributes
+    3. Temporal: Timestamps for historical analysis and trend tracking
+    4. Indexed: Strategic indexes on common query patterns (time-based, author-based)
+    5. Relational: PostTopic junction table supports many-to-many topic assignments
+
+Model Overview:
+
+    Author:
+        Represents community members who create content. Tracks external_id
+        (e.g., HN username) separately from internal UUID for data integrity
+        and multi-platform support.
+
+    Post:
+        Unified model for both stories and comments (distinguished by parent_id).
+        Self-referential relationship supports comment threads. Nullable fields support
+        various content types (stories have titles/urls, comments have content).
+
+    Topic:
+        Extracted themes/subjects from content analysis. Uses slug for URL-friendly
+        identifiers and label for display. Will be populated by NLP/topic modeling.
+
+    PostTopic:
+        Many-to-many association with relevance scoring. Allows posts to belong to
+        multiple topics with weighted relationships.
+
+When This Activates:
+    These models become active when implementing caching, historical analysis, or
+    offline capabilities. The schema is PostgreSQL-optimized but portable to other
+    SQL databases with minor adjustments.
+
+Migration Path:
+    When ready to persist data, implement Alembic migrations and create repository
+    classes in data_sources/ that use these models via db/connection.py sessions.
+"""
 
 from datetime import datetime, timezone
 from typing import Any

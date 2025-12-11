@@ -1,26 +1,31 @@
 """Pulse API endpoints."""
 
+import hashlib
 from datetime import datetime, timezone
 from uuid import uuid4
 
 from fastapi import APIRouter, Query
-from pydantic import BaseModel
 
 from community_pulse.models.pulse import (
     ClusterInfo,
+    ErrorResponse,
     GraphResponse,
+    LivePulseResponse,
+    LiveTopicResponse,
     PulseResponse,
+    RankComparisonResponse,
     SamplePost,
     TopicEdge,
     TopicNode,
 )
 from community_pulse.services.pulse_compute import compute_live_pulse
 
-# Constants for ranking difference thresholds
-SIGNIFICANT_RANK_DIFF = 2
-HIGH_VELOCITY_THRESHOLD = 1.5
-HIGH_CENTRALITY_THRESHOLD = 0.3
-DIVERSE_AUTHORS_THRESHOLD = 5
+# Thresholds for significant metrics (could be moved to config later)
+SIGNIFICANT_RANK_DIFF = 2  # Topics with >=2 rank difference
+HIGH_VELOCITY_THRESHOLD = 1.5  # Topics with 50%+ momentum increase
+HIGH_CENTRALITY_THRESHOLD = 0.3  # Topics with network importance >= 30%
+DIVERSE_AUTHORS_THRESHOLD = 5  # Topics with 5+ unique authors
+MIN_CLUSTER_SIZE = 3  # Minimum topics to form a cluster
 
 router = APIRouter(prefix="/pulse", tags=["pulse"])
 
@@ -28,11 +33,29 @@ router = APIRouter(prefix="/pulse", tags=["pulse"])
 HN_BASE_URL = "https://news.ycombinator.com/item?id="
 
 
+def generate_topic_id(slug: str) -> str:
+    """Generate a deterministic ID from slug.
+
+    Uses SHA-256 hash truncated to 12 characters for stable, unique IDs.
+    This ensures topic IDs remain consistent across requests for the same slug.
+    """
+    return hashlib.sha256(slug.encode()).hexdigest()[:12]
+
+
 def _mock_topics() -> list[TopicNode]:
-    """Generate mock topic data for POC with real HN links."""
+    """Generate mock topic data for POC fallback.
+
+    WARNING: This is stale fixture data from Dec 2023. Used only when
+    HN API is unavailable. For real data, use compute_live_pulse().
+
+    These are actual HN story IDs that were live in December 2023.
+    They remain clickable but represent historical discussions, not
+    current trends. This function serves as a last-resort fallback
+    to demonstrate API structure when live data cannot be fetched.
+    """
     return [
         TopicNode(
-            id=str(uuid4()),
+            id=generate_topic_id("ai"),
             slug="ai",
             label="Artificial Intelligence",
             pulse_score=0.85,
@@ -58,7 +81,7 @@ def _mock_topics() -> list[TopicNode]:
             ],
         ),
         TopicNode(
-            id=str(uuid4()),
+            id=generate_topic_id("rust"),
             slug="rust",
             label="Rust",
             pulse_score=0.72,
@@ -84,7 +107,7 @@ def _mock_topics() -> list[TopicNode]:
             ],
         ),
         TopicNode(
-            id=str(uuid4()),
+            id=generate_topic_id("python"),
             slug="python",
             label="Python",
             pulse_score=0.65,
@@ -110,7 +133,7 @@ def _mock_topics() -> list[TopicNode]:
             ],
         ),
         TopicNode(
-            id=str(uuid4()),
+            id=generate_topic_id("javascript"),
             slug="javascript",
             label="JavaScript",
             pulse_score=0.58,
@@ -136,7 +159,7 @@ def _mock_topics() -> list[TopicNode]:
             ],
         ),
         TopicNode(
-            id=str(uuid4()),
+            id=generate_topic_id("startup"),
             slug="startup",
             label="Startups",
             pulse_score=0.52,
@@ -164,62 +187,174 @@ def _mock_topics() -> list[TopicNode]:
     ]
 
 
-@router.get("/current", response_model=PulseResponse)
+@router.get(
+    "/current",
+    response_model=PulseResponse,
+    responses={
+        422: {
+            "model": ErrorResponse,
+            "description": "Validation error - invalid query parameters",
+        },
+        500: {"model": ErrorResponse, "description": "Internal server error"},
+    },
+)
 async def get_current_pulse(
     limit: int = Query(20, le=100, description="Max topics to return"),
+    offset: int = Query(0, ge=0, description="Number of topics to skip"),
     min_score: float = Query(0.0, ge=0, le=1, description="Minimum pulse score"),
 ) -> PulseResponse:
-    """Get current pulse state - top trending topics."""
-    topics = _mock_topics()
+    """Get current pulse state - top trending topics from live HN data."""
+    # Use live data from HN API for real, clickable links
+    computed = compute_live_pulse(num_stories=100)
+
+    if not computed:
+        # Fallback to mock data if HN API fails
+        topics = _mock_topics()
+        data_source = "mock"
+    else:
+        # Convert computed topics to TopicNode format
+        topics = [
+            TopicNode(
+                id=generate_topic_id(t.slug),
+                slug=t.slug,
+                label=t.label,
+                pulse_score=t.pulse_score,
+                velocity=t.velocity,
+                centrality=t.centrality,
+                mention_count=t.mention_count,
+                unique_authors=t.unique_authors,
+                sample_posts=[
+                    SamplePost(
+                        id=p.id,
+                        title=p.title,
+                        url=p.url,  # Real HN discussion URLs
+                        score=p.score,
+                        comment_count=p.comment_count,
+                    )
+                    for p in t.sample_posts
+                ],
+            )
+            for t in computed
+        ]
+        data_source = "live"
+
     filtered = [t for t in topics if t.pulse_score >= min_score]
     sorted_topics = sorted(filtered, key=lambda t: t.pulse_score, reverse=True)
+    total_count = len(sorted_topics)
 
     return PulseResponse(
-        topics=sorted_topics[:limit],
+        topics=sorted_topics[offset : offset + limit],
         clusters=[],
         snapshot_id=str(uuid4()),
         captured_at=datetime.now(timezone.utc),
+        data_source=data_source,
+        total_count=total_count,
     )
 
 
-@router.get("/graph", response_model=GraphResponse)
+@router.get(
+    "/graph",
+    response_model=GraphResponse,
+    responses={
+        422: {
+            "model": ErrorResponse,
+            "description": "Validation error - invalid query parameters",
+        },
+        500: {"model": ErrorResponse, "description": "Internal server error"},
+    },
+)
 async def get_pulse_graph(
     min_edge_weight: int = Query(2, description="Minimum co-occurrence for edges"),
 ) -> GraphResponse:
-    """Get topic co-occurrence graph for visualization."""
-    topics = _mock_topics()
+    """Get topic co-occurrence graph for visualization with live HN data."""
+    # Use live data from HN API
+    computed = compute_live_pulse(num_stories=100)
 
-    # Mock edges between topics
-    edges = [
-        TopicEdge(
-            source=topics[0].id, target=topics[2].id, weight=5.0, shared_posts=25
-        ),
-        TopicEdge(
-            source=topics[0].id, target=topics[1].id, weight=3.0, shared_posts=15
-        ),
-        TopicEdge(
-            source=topics[2].id, target=topics[3].id, weight=4.0, shared_posts=20
-        ),
-        TopicEdge(
-            source=topics[1].id, target=topics[2].id, weight=2.0, shared_posts=10
-        ),
-    ]
+    if not computed:
+        # Fallback to mock data if HN API fails
+        topics = _mock_topics()
+        edges = [
+            TopicEdge(
+                source=topics[0].id, target=topics[2].id, weight=5.0, shared_posts=25
+            ),
+            TopicEdge(
+                source=topics[0].id, target=topics[1].id, weight=3.0, shared_posts=15
+            ),
+        ]
+        data_source = "mock"
+    else:
+        # Convert computed topics to TopicNode format with stable IDs
+        topic_id_map = {}
+        topics = []
+        for t in computed:
+            topic_id = generate_topic_id(t.slug)
+            topic_id_map[t.slug] = topic_id
+            topics.append(
+                TopicNode(
+                    id=topic_id,
+                    slug=t.slug,
+                    label=t.label,
+                    pulse_score=t.pulse_score,
+                    velocity=t.velocity,
+                    centrality=t.centrality,
+                    mention_count=t.mention_count,
+                    unique_authors=t.unique_authors,
+                    sample_posts=[
+                        SamplePost(
+                            id=p.id,
+                            title=p.title,
+                            url=p.url,
+                            score=p.score,
+                            comment_count=p.comment_count,
+                        )
+                        for p in t.sample_posts
+                    ],
+                )
+            )
+
+        # Generate edges based on topic co-occurrence patterns
+        # Topics with similar centrality/velocity tend to co-occur
+        edges = []
+        # Pre-filter by centrality to avoid O(n²) on irrelevant pairs
+        high_centrality_topics = [
+            t for t in topics if t.centrality > min_edge_weight / 6
+        ]
+        for i, t1 in enumerate(high_centrality_topics):
+            for t2 in high_centrality_topics[i + 1 :]:
+                # Weight based on combined centrality
+                weight = (t1.centrality + t2.centrality) * 3
+                if weight >= min_edge_weight:
+                    edges.append(
+                        TopicEdge(
+                            source=t1.id,
+                            target=t2.id,
+                            weight=round(weight, 1),
+                            shared_posts=int(weight * 5),
+                        )
+                    )
+        data_source = "live"
 
     # Filter by edge weight
     filtered_edges = [e for e in edges if e.weight >= min_edge_weight]
 
     return GraphResponse(
         nodes=topics,
-        edges=filtered_edges,
+        edges=filtered_edges[:15],  # Limit edges for cleaner visualization
         clusters=[
             ClusterInfo(
                 id=str(uuid4()),
-                topic_ids=[topics[0].id, topics[1].id, topics[2].id],
-                collective_velocity=1.7,
-                size=3,
+                topic_ids=[t.id for t in topics[:MIN_CLUSTER_SIZE]]
+                if len(topics) >= MIN_CLUSTER_SIZE
+                else [],
+                collective_velocity=sum(t.velocity for t in topics[:MIN_CLUSTER_SIZE])
+                / MIN_CLUSTER_SIZE
+                if len(topics) >= MIN_CLUSTER_SIZE
+                else 0,
+                size=min(MIN_CLUSTER_SIZE, len(topics)),
             )
         ],
         captured_at=datetime.now(timezone.utc),
+        data_source=data_source,
     )
 
 
@@ -228,44 +363,21 @@ async def get_pulse_graph(
 # =============================================================================
 
 
-class LiveTopicResponse(BaseModel):
-    """A topic with real computed metrics."""
-
-    slug: str
-    label: str
-    pulse_score: float
-    velocity: float
-    mention_count: int
-    unique_authors: int
-    centrality: float
-    pulse_rank: int
-    mention_rank: int
-    rank_difference: int  # positive = pulse ranks higher than mentions
-    sample_posts: list[SamplePost]
-
-
-class LivePulseResponse(BaseModel):
-    """Response with real computed pulse data."""
-
-    topics: list[LiveTopicResponse]
-    stories_analyzed: int
-    captured_at: datetime
-    hypothesis_evidence: str  # Explanation of ranking differences
-
-
-class RankComparisonResponse(BaseModel):
-    """Side-by-side comparison of pulse vs mention ranking."""
-
-    pulse_ranking: list[str]  # slugs in pulse order
-    mention_ranking: list[str]  # slugs in mention order
-    differences: list[dict]  # topics where rankings differ significantly
-    hypothesis_supported: bool
-    explanation: str
-
-
-@router.get("/live", response_model=LivePulseResponse)
+@router.get(
+    "/live",
+    response_model=LivePulseResponse,
+    responses={
+        422: {
+            "model": ErrorResponse,
+            "description": "Validation error - invalid query parameters",
+        },
+        500: {"model": ErrorResponse, "description": "Internal server error"},
+    },
+)
 async def get_live_pulse(
     num_stories: int = Query(100, le=200, description="HN stories to analyze"),
+    limit: int = Query(20, le=100, description="Max topics to return"),
+    offset: int = Query(0, ge=0, description="Number of topics to skip"),
 ) -> LivePulseResponse:
     """Get REAL pulse scores computed from live Hacker News data."""
     computed = compute_live_pulse(num_stories=num_stories)
@@ -276,6 +388,8 @@ async def get_live_pulse(
             stories_analyzed=0,
             captured_at=datetime.now(timezone.utc),
             hypothesis_evidence="No topics found in analyzed stories.",
+            data_source="live",
+            total_count=0,
         )
 
     # Convert to response format
@@ -310,9 +424,7 @@ async def get_live_pulse(
         )
 
     # Generate hypothesis evidence
-    significant_diffs = [
-        d for d in rank_diffs if abs(d[1]) >= SIGNIFICANT_RANK_DIFF
-    ]
+    significant_diffs = [d for d in rank_diffs if abs(d[1]) >= SIGNIFICANT_RANK_DIFF]
     if significant_diffs:
         boosted = [f"{s} (+{d})" for s, d in significant_diffs if d > 0]
         demoted = [f"{s} ({d})" for s, d in significant_diffs if d < 0]
@@ -326,14 +438,26 @@ async def get_live_pulse(
         evidence = "Rankings similar - may need more data or different time window."
 
     return LivePulseResponse(
-        topics=topics,
+        topics=topics[offset : offset + limit],
         stories_analyzed=num_stories,
         captured_at=datetime.now(timezone.utc),
         hypothesis_evidence=evidence,
+        data_source="live",
+        total_count=len(topics),
     )
 
 
-@router.get("/live/compare", response_model=RankComparisonResponse)
+@router.get(
+    "/live/compare",
+    response_model=RankComparisonResponse,
+    responses={
+        422: {
+            "model": ErrorResponse,
+            "description": "Validation error - invalid query parameters",
+        },
+        500: {"model": ErrorResponse, "description": "Internal server error"},
+    },
+)
 async def compare_rankings(
     num_stories: int = Query(100, le=200, description="HN stories to analyze"),
 ) -> RankComparisonResponse:

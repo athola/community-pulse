@@ -65,10 +65,8 @@ export default function PulseScreen() {
 
   const graphQuery = usePulseGraph();
 
-  const isLoading = pulseQuery.isLoading || graphQuery.isLoading;
-  const error = pulseQuery.error || graphQuery.error;
-
-  if (isLoading) {
+  // Only block on pulse data - graph can load independently
+  if (pulseQuery.isLoading) {
     return (
       <View style={styles.center}>
         <ActivityIndicator size="large" color="#22d3ee" />
@@ -77,11 +75,11 @@ export default function PulseScreen() {
     );
   }
 
-  if (error) {
+  if (pulseQuery.error) {
     return (
       <View style={styles.center}>
         <Text style={styles.errorText}>Failed to load pulse data</Text>
-        <Text style={styles.errorDetail}>{String(error)}</Text>
+        <Text style={styles.errorDetail}>{String(pulseQuery.error)}</Text>
       </View>
     );
   }
@@ -172,14 +170,21 @@ export default function PulseScreen() {
             ))}
           </View>
         </ScrollView>
+      ) : graphQuery.isLoading ? (
+        <View style={styles.center}>
+          <ActivityIndicator size="large" color="#22d3ee" />
+          <Text style={styles.loadingText}>Loading graph...</Text>
+        </View>
+      ) : graphQuery.data ? (
+        <FlowGraph
+          nodes={graphQuery.data.nodes}
+          edges={graphQuery.data.edges}
+          onNodeClick={(node) => console.log('Clicked:', node.label)}
+        />
       ) : (
-        graphQuery.data && (
-          <FlowGraph
-            nodes={graphQuery.data.nodes}
-            edges={graphQuery.data.edges}
-            onNodeClick={(node) => console.log('Clicked:', node.label)}
-          />
-        )
+        <View style={styles.center}>
+          <Text style={styles.errorText}>No graph data available</Text>
+        </View>
       )}
     </View>
   );

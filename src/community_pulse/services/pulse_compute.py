@@ -1,17 +1,21 @@
 """Pulse computation service - runs analysis on community data via plugins."""
 
+import logging
 from collections import defaultdict
 from dataclasses import dataclass, field
 
 from community_pulse.analysis.graph import (
     TopicGraphData,
+    build_directed_graph,
     build_topic_graph,
-    compute_centrality,
+    compute_all_centrality,
 )
 from community_pulse.analysis.velocity import compute_pulse_score
 from community_pulse.ingest.topic_extractor import extract_topics
 from community_pulse.plugins.base import DataSourcePlugin, RawPost
 from community_pulse.plugins.hackernews import HackerNewsPlugin
+
+logger = logging.getLogger(__name__)
 
 
 @dataclass
@@ -130,16 +134,30 @@ class PulseComputeService:
         """Compute pulse scores from the configured data source."""
         posts = self.plugin.fetch_posts(limit=self.num_posts)
         if not posts:
+            logger.warning(
+                f"No posts fetched from {self.plugin.name} (requested {self.num_posts})"
+            )
             return []
 
         topic_posts, topic_authors = self._extract_topics_from_posts(posts)
         if not topic_posts:
+            logger.info(
+                f"No topics extracted from {len(posts)} posts - check topic patterns"
+            )
             return []
+
+        logger.info(
+            f"Computing pulse for {len(topic_posts)} topics from {len(posts)} posts"
+        )
 
         graph_data = self._build_cooccurrence_graph(topic_posts, topic_authors)
 
-        graph, node_indices = build_topic_graph(graph_data)
-        centrality_by_idx = compute_centrality(graph)
+        # Build both undirected and directed graphs for different centrality measures
+        undirected, node_indices = build_topic_graph(graph_data)
+        directed = build_directed_graph(graph_data, node_indices)
+
+        # Compute all centrality metrics using appropriate graph types
+        centrality_by_idx = compute_all_centrality(undirected, directed)
 
         idx_to_topic = {idx: slug for slug, idx in node_indices.items()}
         centrality = {
@@ -158,6 +176,7 @@ class PulseComputeService:
             topic_centrality = centrality.get(slug, {})
             eigenvector = topic_centrality.get("eigenvector", 0.0)
             betweenness = topic_centrality.get("betweenness", 0.0)
+            pagerank = topic_centrality.get("pagerank", 0.0)
 
             avg_mentions = len(posts) / max(len(topic_posts), 1)
             velocity = mention_count / max(avg_mentions, 1)
@@ -168,6 +187,7 @@ class PulseComputeService:
                 betweenness_centrality=betweenness,
                 unique_authors=unique_authors,
                 max_authors=max(max_authors, 1),
+                pagerank=pagerank,
             )
 
             sorted_posts = sorted(post_list, key=lambda x: x[0].score, reverse=True)

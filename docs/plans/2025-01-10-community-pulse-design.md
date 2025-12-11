@@ -285,3 +285,32 @@ community-pulse/
 - [ ] Timeline shows pulse trends over 72 hours
 - [ ] API responds in <200ms for current pulse
 - [ ] Interviewers can open on personal devices
+
+## Implementation Notes
+
+### Formula Evolution During POC
+
+The original design specified a 4-signal pulse formula:
+- 30% velocity (A)
+- 30% eigenvector centrality (B)
+- 25% betweenness (D)
+- 15% sentiment (C)
+
+During POC implementation, this evolved to a 5-signal formula:
+- 25% velocity
+- 25% eigenvector centrality
+- 20% betweenness
+- 15% PageRank (new)
+- 15% author spread (replaces sentiment)
+
+**Rationale:**
+
+1. **PageRank addition** — Complements eigenvector centrality by adding flow-based authority measurement. While eigenvector measures importance via connections to important nodes, PageRank captures influence via information flow patterns. Together they provide richer topic prominence detection.
+
+2. **Sentiment → author spread replacement** — Author spread (unique authors discussing a topic) is more objective, easier to compute (no NLP model needed), and better reflects genuine convergence. It avoids sentiment analysis pitfalls like sarcasm detection and domain-specific language while still capturing the "multiple independent voices" signal.
+
+3. **Weight rebalancing** — Velocity and eigenvector remain the primary signals at 25% each. Betweenness reduced to 20% to accommodate the two new 15% signals while maintaining mathematical coherence (total = 100%).
+
+This evolution maintains the core design principle of detecting emergent collective movement via multi-signal convergence, while improving objectivity and computational efficiency.
+
+See `src/community_pulse/analysis/velocity.py` for detailed technical documentation.

@@ -54,9 +54,11 @@ def test_graph_response() -> None:
         ],
         edges=[TopicEdge(source="1", target="2", weight=3.0)],
         captured_at=now,
+        data_source="live",
     )
     assert len(response.nodes) == 2
     assert len(response.edges) == 1
+    assert response.data_source == "live"
 
 
 def test_pulse_response() -> None:
@@ -66,5 +68,9 @@ def test_pulse_response() -> None:
         topics=[TopicNode(id="1", slug="ai", label="AI", pulse_score=0.9)],
         snapshot_id="snap123",
         captured_at=now,
+        data_source="live",
+        total_count=1,
     )
     assert response.snapshot_id == "snap123"
+    assert response.data_source == "live"
+    assert response.total_count == 1

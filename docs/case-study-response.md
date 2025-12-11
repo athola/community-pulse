@@ -17,19 +17,31 @@ Before addressing the technical questions, we needed to define what "pulse" mean
 | Hottest topics (by mention count) | Lags behind—high counts mean trend already peaked |
 | Sentiment analysis alone | Tells you *how* people feel, not *what's* emerging |
 
-**Our definition**: Community Pulse detects **emerging collective attention**—the moment when independent voices begin converging on the same signal, before it becomes mainstream.
+**Our definition**: Community Pulse detects **emerging collective attention**. This is the moment when independent voices begin converging on the same signal, before it becomes mainstream.
 
 This is measured by combining:
+
 - **Velocity** (30%): Rate of acceleration in topic mentions
+  - *Example*: "WebGPU" went from 2 mentions/day to 15 mentions/day over 48 hours (7.5x acceleration). This rapid growth rate signals emerging interest before total mentions accumulate.
+  - *Counter-example*: "JavaScript" has 100 mentions/day consistently—high volume but velocity near 1.0x means it's stable, not emerging.
+
 - **Convergence** (30%): Multiple independent authors discovering the same topic
+  - *Example*: 8 different authors, none who follow each other, all post about "Bun runtime" within the same day. This independent discovery pattern suggests organic emergence rather than coordinated promotion.
+  - *Counter-example*: A single influencer posts 20 times about their new project—high mention count but single-author, so convergence score is near zero.
+
 - **Network position** (25%): Topics that bridge otherwise separate discussions
+  - *Example*: "HTMX" appears in threads about both "backend development" and "frontend simplification"—it connects two communities that don't usually overlap, making it a bridge topic with high betweenness centrality.
+  - *Counter-example*: "Python web frameworks" only appears in Python-specific discussions—high within its cluster but doesn't bridge to other communities.
+
 - **Author diversity** (15%): Breadth of contributor base
+  - *Example*: "Rust in production" is discussed by 45 unique authors including both newcomers and established voices—broad participation signals genuine community interest.
+  - *Counter-example*: A topic with 50 mentions from only 3 authors suggests a small group amplifying rather than community-wide engagement.
 
 ---
 
 ## The Hypothesis (Explicit & Testable)
 
-> **Hypothesis**: Topics with high velocity (acceleration) AND high convergence (independent discovery) are better indicators of emerging trends than simple mention counts alone.
+> **Hypothesis**: Topics with high velocity (acceleration) AND high convergence (independent discovery) are better indicators of emerging trends than simple mention counts alone. They are also less prone to manipulation in online communities.
 
 ### Testable Predictions
 
@@ -72,7 +84,7 @@ For production, we'd add:
 
 ### The Problem
 
-Raw data overwhelm is real. A platform with 10,000 users might generate 1,000+ posts daily. Showing users everything defeats the purpose.
+Users being overwhelmed by raw data is a real concern. A platform with 10,000 users might generate 1,000+ posts daily. Showing users everything defeats the purpose.
 
 ### Our Solution: Curated Pulse Scores
 
@@ -311,13 +323,13 @@ curl http://localhost:8000/pulse/current | jq '.topics[:3]'
 
 | Component | Status | Lines of Code |
 |-----------|--------|---------------|
-| Data ingestion (HN) | ✅ Complete | ~160 |
-| Topic extraction | ✅ Complete | ~100 |
-| Graph analysis | ✅ Complete | ~120 |
-| Pulse scoring | ✅ Complete | ~60 |
-| REST API | ✅ Complete | ~80 |
-| Frontend visualization | ✅ Complete | ~300 |
-| Tests | ✅ 58 passing | ~800 |
+| Data ingestion (HN) | Complete | ~160 |
+| Topic extraction | Complete | ~100 |
+| Graph analysis | Complete | ~120 |
+| Pulse scoring | Complete | ~60 |
+| REST API | Complete | ~80 |
+| Frontend visualization | Complete | ~300 |
+| Tests | 58 passing | ~800 |
 | **Total** | **Ready to demo** | **~1,600** |
 
 ### What the POC Intentionally Omits
@@ -336,6 +348,8 @@ These are documented in GitHub issues for future work:
 4. **Show the math** (1 min): Display the weighting formula, explain each signal
 
 ### Screenshot of Working POC
+
+![Community Pulse Dashboard](../assets/pulse-screenshot.png)
 
 The frontend shows:
 - **Cards view**: Ranked topics with pulse scores and velocity indicators
