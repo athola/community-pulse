@@ -209,6 +209,8 @@ async def get_current_pulse(
 
     if not computed:
         # Fallback to mock data if HN API fails
+        # NOTE: data_source="mock" is included in the response body.
+        # Future enhancement: Also set X-Data-Source header for HTTP-level signaling.
         topics = _mock_topics()
         data_source = "mock"
     else:
@@ -314,6 +316,11 @@ async def get_pulse_graph(
 
         # Generate edges based on topic co-occurrence patterns
         # Topics with similar centrality/velocity tend to co-occur
+        #
+        # POC SIMPLIFICATION: Edge weights are derived from centrality sums rather
+        # than actual post co-occurrence counts. This provides reasonable visualization
+        # without requiring a second pass through posts. Future enhancement: compute
+        # true co-occurrence from shared posts in PulseComputeService.
         edges = []
         # Pre-filter by centrality to avoid O(n²) on irrelevant pairs
         high_centrality_topics = [

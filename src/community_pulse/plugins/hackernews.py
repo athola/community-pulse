@@ -29,12 +29,18 @@ class HackerNewsPlugin:
     - Story IDs cached for 5 minutes (300 seconds)
     - Individual items cached for 2 minutes (120 seconds)
 
-    Usage:
+    Usage (recommended - context manager for guaranteed cleanup):
+        with HackerNewsPlugin() as plugin:
+            posts = plugin.fetch_posts(limit=100)
+            for post in posts:
+                print(f"{post.title} by {post.author}")
+
+    Alternative (manual cleanup required):
         plugin = HackerNewsPlugin()
-        posts = plugin.fetch_posts(limit=100)
-        for post in posts:
-            print(f"{post.title} by {post.author}")
-            print(f"  {post.url}")
+        try:
+            posts = plugin.fetch_posts(limit=100)
+        finally:
+            plugin.close()
     """
 
     name: str = "hackernews"
