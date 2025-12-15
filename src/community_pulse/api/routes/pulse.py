@@ -241,6 +241,7 @@ async def get_current_pulse(
                 label=t.label,
                 pulse_score=t.pulse_score,
                 velocity=t.velocity,
+                temporal_velocity=t.temporal_velocity,
                 centrality=t.centrality,
                 mention_count=t.mention_count,
                 unique_authors=t.unique_authors,
@@ -330,6 +331,7 @@ async def get_pulse_graph(
                     label=t.label,
                     pulse_score=t.pulse_score,
                     velocity=t.velocity,
+                    temporal_velocity=t.temporal_velocity,
                     centrality=t.centrality,
                     mention_count=t.mention_count,
                     unique_authors=t.unique_authors,
@@ -447,6 +449,9 @@ async def get_live_pulse(
                 label=t.label,
                 pulse_score=round(t.pulse_score, 3),
                 velocity=round(t.velocity, 2),
+                temporal_velocity=round(t.temporal_velocity, 2)
+                if t.temporal_velocity is not None
+                else None,
                 mention_count=t.mention_count,
                 unique_authors=t.unique_authors,
                 centrality=round(t.centrality, 3),

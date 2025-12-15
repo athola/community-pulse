@@ -20,7 +20,7 @@ services:
   api:
     build: .
     ports:
-      - "8000:8000"
+      - "8001:8001"
     environment:
       DATABASE_URL: postgresql://pulse:pulse_dev@db:5432/community_pulse
     depends_on:

@@ -24,7 +24,17 @@ class TopicNode(BaseModel):
     label: str = Field(description="Human-readable topic name")
     pulse_score: float = Field(ge=0, le=1, description="Combined pulse score from 0-1")
     velocity: float = Field(
-        default=1.0, description="Topic momentum relative to baseline"
+        default=1.0,
+        description=(
+            "Relative popularity vs other topics (>1 = above avg, <1 = below avg)"
+        ),
+    )
+    temporal_velocity: float | None = Field(
+        default=None,
+        description=(
+            "True velocity vs historical baseline "
+            "(>1 = growing, <1 = declining, null = no history)"
+        ),
     )
     centrality: float = Field(
         default=0.0, ge=0, le=1, description="Network importance score"
@@ -115,7 +125,16 @@ class LiveTopicResponse(BaseModel):
     slug: str = Field(description="URL-safe topic identifier")
     label: str = Field(description="Human-readable topic name")
     pulse_score: float = Field(description="Combined pulse score from 0-1")
-    velocity: float = Field(description="Topic momentum relative to baseline")
+    velocity: float = Field(
+        description="Relative popularity vs other topics (>1 = above avg)"
+    )
+    temporal_velocity: float | None = Field(
+        default=None,
+        description=(
+            "True velocity vs historical baseline "
+            "(>1 = growing, null = no history)"
+        ),
+    )
     mention_count: int = Field(description="Total mentions in time window")
     unique_authors: int = Field(description="Distinct authors discussing topic")
     centrality: float = Field(description="Network importance score")

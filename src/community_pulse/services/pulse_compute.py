@@ -14,6 +14,10 @@ from community_pulse.analysis.velocity import compute_pulse_score
 from community_pulse.ingest.topic_extractor import extract_topics
 from community_pulse.plugins.base import DataSourcePlugin, RawPost
 from community_pulse.plugins.hackernews import HackerNewsPlugin
+from community_pulse.services.snapshot_store import (
+    compute_temporal_velocity,
+    get_snapshot_store,
+)
 
 logger = logging.getLogger(__name__)
 
@@ -36,7 +40,7 @@ class ComputedTopic:
     slug: str
     label: str
     pulse_score: float
-    velocity: float
+    velocity: float  # Relative popularity (vs other topics in this snapshot)
     mention_count: int
     unique_authors: int
     centrality: float
@@ -44,6 +48,8 @@ class ComputedTopic:
     # For hypothesis validation - compare to simple ranking
     mention_rank: int = 0
     pulse_rank: int = 0
+    # True temporal velocity (vs this topic's historical baseline)
+    temporal_velocity: float | None = None
 
 
 class PulseComputeService:
@@ -130,8 +136,13 @@ class PulseComputeService:
 
         return by_pulse
 
-    def compute_pulse(self) -> list[ComputedTopic]:
-        """Compute pulse scores from the configured data source."""
+    def compute_pulse(self, save_snapshot: bool = True) -> list[ComputedTopic]:
+        """Compute pulse scores from the configured data source.
+
+        Args:
+            save_snapshot: Whether to save a snapshot for future temporal comparison
+
+        """
         posts = self.plugin.fetch_posts(limit=self.num_posts)
         if not posts:
             logger.warning(
@@ -149,6 +160,10 @@ class PulseComputeService:
         logger.info(
             f"Computing pulse for {len(topic_posts)} topics from {len(posts)} posts"
         )
+
+        # Load previous snapshot for temporal velocity calculation
+        snapshot_store = get_snapshot_store()
+        previous_snapshot = snapshot_store.get_previous_snapshot()
 
         graph_data = self._build_cooccurrence_graph(topic_posts, topic_authors)
 
@@ -202,6 +217,12 @@ class PulseComputeService:
                 for post, _ in sorted_posts[:3]
             ]
 
+            # Calculate temporal velocity from previous snapshot
+            previous_mentions = None
+            if previous_snapshot and slug in previous_snapshot.topics:
+                previous_mentions = previous_snapshot.topics[slug].mention_count
+            temporal_vel = compute_temporal_velocity(mention_count, previous_mentions)
+
             computed_topics.append(
                 ComputedTopic(
                     slug=slug,
@@ -212,10 +233,25 @@ class PulseComputeService:
                     unique_authors=unique_authors,
                     centrality=eigenvector,
                     sample_posts=sample_posts,
+                    temporal_velocity=temporal_vel,
                 )
             )
 
-        return self._assign_ranks(computed_topics)
+        result = self._assign_ranks(computed_topics)
+
+        # Save snapshot for future temporal comparisons
+        if save_snapshot and computed_topics:
+            snapshot_data = [
+                {
+                    "slug": t.slug,
+                    "mention_count": t.mention_count,
+                    "unique_authors": t.unique_authors,
+                }
+                for t in computed_topics
+            ]
+            snapshot_store.save_snapshot(snapshot_data)
+
+        return result
 
 
 def compute_live_pulse(

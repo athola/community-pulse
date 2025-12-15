@@ -2,7 +2,7 @@
  * API client for Community Pulse backend
  */
 
-const API_URL = process.env.EXPO_PUBLIC_API_URL || 'http://localhost:8000';
+const API_URL = process.env.EXPO_PUBLIC_API_URL || 'http://localhost:8001';
 
 export interface TopicNode {
   id: string;

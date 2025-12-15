@@ -1,18 +1,16 @@
 # Community Pulse
 
-**Detecting Emerging Trends Before They Peak**
+**Detecting Emerging Topics via Velocity and Graph Analysis**
 
 ---
 
 ## The Challenge
 
-Online communities generate thousands of discussions daily. Hidden within this noise are **emerging signals**—topics gaining momentum that indicate where collective attention is heading.
+Online communities generate high message volumes. Count-based trend detection methods often lag because they:
 
-Traditional trend detection methods fail because they:
-
-- React **after** trends have already peaked
-- Miss **convergence patterns** (multiple voices independently discovering the same insight)
-- Ignore the **network structure** of how information flows through communities
+- React after mention counts have already peaked.
+- Miss convergence patterns where multiple voices independently discuss a topic.
+- Ignore the network structure of how information flows between topics.
 
 ```mermaid
 flowchart LR
@@ -21,9 +19,9 @@ flowchart LR
         B --> C[Report top topics]
     end
 
-    subgraph Problem["The Problem"]
+    subgraph Problem["Limitations"]
         D[Late detection]
-        E[Misses emergence]
+        E[Misses convergence]
         F[No context]
     end
 
@@ -32,13 +30,13 @@ flowchart LR
     style Problem fill:#fee,stroke:#c00
 ```
 
-**Result**: By the time a trend appears on traditional dashboards, the opportunity window has closed.
+**Result**: Count-based dashboards often report trends only after they have become mainstream.
 
 ---
 
-## The Solution
+## Methodology
 
-Community Pulse detects **emerging collective attention** by analyzing the *pulse* of community discussions—not just what people are talking about, but *how* conversations are evolving and connecting.
+Community Pulse identifies emerging topics by combining mention velocity with graph centrality metrics.
 
 ```mermaid
 flowchart TB
@@ -54,7 +52,7 @@ flowchart TB
         C[Convergence Scoring]
     end
 
-    subgraph Output["Actionable Insights"]
+    subgraph Output["Output"]
         Trends[Emerging Trends]
         Clusters[Topic Clusters]
         Scores[Pulse Scores]
@@ -69,15 +67,14 @@ flowchart TB
 
 ---
 
-## Who Is This For?
+## Use Cases
 
-| Audience | Use Case |
-|----------|----------|
-| **Community Managers** | Identify rising discussions before they dominate feeds |
-| **Product Teams** | Spot emerging user needs and feature requests early |
-| **Research Analysts** | Track technology adoption and sentiment shifts |
-| **Content Strategists** | Find timely topics for engagement |
-| **Investment Analysts** | Monitor technology trends in developer communities |
+| Audience | Application |
+|----------|-------------|
+| **Community Managers** | Identify rising discussions early. |
+| **Product Teams** | Spot emerging user needs and feature requests. |
+| **Research Analysts** | Track technology adoption shifts. |
+| **Content Strategists** | Identify timely topics for content creation. |
 
 ---
 
@@ -85,7 +82,7 @@ flowchart TB
 
 ### The Pulse Score Formula
 
-Community Pulse combines five signals into a single **Pulse Score** (0-100):
+The Pulse Score (0-100) combines five signals:
 
 ```mermaid
 pie title Pulse Score Composition
@@ -98,23 +95,19 @@ pie title Pulse Score Composition
 
 | Signal | Weight | What It Measures |
 |--------|--------|------------------|
-| **Velocity** | 25% | How fast is this topic accelerating? |
-| **Eigenvector Centrality** | 25% | Connection to other important topics |
-| **Betweenness Centrality** | 20% | Is this topic a bridge between communities? |
-| **PageRank** | 15% | Flow-based influence and authority |
-| **Author Diversity** | 15% | How many unique voices are contributing? |
+| **Velocity** | 25% | Rate of acceleration in mentions. |
+| **Eigenvector Centrality** | 25% | Connection to other high-scoring topics. |
+| **Betweenness Centrality** | 20% | Bridge topics connecting different clusters. |
+| **PageRank** | 15% | Flow-based importance in the topic graph. |
+| **Author Diversity** | 15% | Count of unique contributing authors. |
 
-### Why These Signals Matter
+### Signal Rationale
 
-**Velocity** catches momentum—a topic mentioned 10x more than last week is accelerating.
-
-**Eigenvector Centrality** identifies convergence—topics connected to other important topics are themselves important, capturing organic emergence patterns.
-
-**Betweenness Centrality** reveals bridges—topics that connect otherwise separate discussion clusters often indicate paradigm shifts.
-
-**PageRank** measures authority—flow-based influence that accounts for how attention propagates through the topic network.
-
-**Author Diversity** filters noise—topics discussed by many different people carry more weight than one person posting repeatedly.
+- **Velocity**: Captures momentum (acceleration relative to baseline).
+- **Eigenvector Centrality**: Identifies convergence (topics connected to other important topics).
+- **Betweenness Centrality**: Reveals bridges (topics connecting separate clusters).
+- **PageRank**: Measures authority (influence propagation).
+- **Author Diversity**: Filters noise (prevents single-author dominance).
 
 ---
 
@@ -159,21 +152,21 @@ flowchart LR
 
 ### Key Technologies
 
-| Component | Technology | Why |
-|-----------|------------|-----|
-| Graph Analysis | **rustworkx** | Rust-powered speed for centrality calculations |
-| Database | **Supabase** | PostgreSQL with built-in GraphQL support |
-| API | **FastAPI** | High-performance async Python |
-| Frontend | **React Native Web** | Cross-platform (desktop + mobile) |
-| Visualization | **react-force-graph** | Interactive network exploration |
+| Component | Technology | Reasoning |
+|-----------|------------|-----------|
+| Graph Analysis | **rustworkx** | Rust-based performance for centrality calculations. |
+| Database | **Supabase** | PostgreSQL with `pg_graphql`. |
+| API | **FastAPI** | Async Python support. |
+| Frontend | **React Native Web** | Cross-platform compatibility. |
+| Visualization | **react-force-graph** | Interactive network rendering. |
 
 ---
 
-## What You See
+## Visualization Views
 
-### Topic Network View
+### Topic Network
 
-The primary visualization shows topics as **nodes** and their co-occurrence as **edges**:
+Topics appear as **nodes** connected by co-occurrence **edges**:
 
 ```mermaid
 graph TB
@@ -197,29 +190,17 @@ graph TB
     style Security fill:#3b5068,stroke:#1e3a5f
 ```
 
-- **Node size** = Pulse score (bigger = more momentum)
-- **Node color** = Intensity (cyan = high pulse, gray = low)
-- **Edge thickness** = Co-occurrence strength
+- **Node size**: Pulse score.
+- **Node color**: Intensity.
+- **Edge thickness**: Co-occurrence strength.
 
-### Topic Cards View
+### Topic Cards
 
-For quick scanning, topics display as cards showing:
-
-- Topic name and current pulse score
-- Velocity indicator (↑ rising, ↓ falling, → stable)
-- Mention count and unique author count
-- Trend sparkline
-
----
-
-## Sample Insights
-
-| Topic | Pulse | Velocity | Insight |
-|-------|-------|----------|---------|
-| **AI Agents** | 87 | ↑ 3.2x | Rapidly emerging—3x more mentions than baseline |
-| **Rust** | 72 | ↑ 1.8x | Steady growth, high convergence from diverse authors |
-| **Python** | 65 | → 1.1x | Stable baseline, always present |
-| **WebAssembly** | 58 | ↑ 2.1x | Emerging bridge topic connecting frontend + systems |
+A list view showing:
+- Topic name and pulse score.
+- Velocity indicator.
+- Mention and author counts.
+- Trend sparkline.
 
 ---
 
@@ -237,84 +218,48 @@ flowchart TB
         Supabase[(Supabase)]
     end
 
-    subgraph Future["Future Options"]
-        AWS[AWS/GCP]
-        OnPrem[On-Premises]
-    end
-
     Local --> Cloud
-    Cloud --> Future
 ```
 
-| Environment | Database | API Hosting | Cost |
-|-------------|----------|-------------|------|
-| **Local Dev** | Docker PostgreSQL | localhost | Free |
-| **POC/Demo** | Supabase Free | Render Free | Free |
-| **Production** | Supabase Pro | Render Standard | ~$25/mo |
-| **Enterprise** | Self-hosted PG | AWS/GCP | Variable |
+| Environment | Database | API Hosting |
+|-------------|----------|-------------|
+| **Local Dev** | Docker PostgreSQL | localhost |
+| **POC/Demo** | Supabase Free | Render Free |
+| **Production** | Supabase Pro | Render Standard |
 
 ---
 
-## Roadmap
-
-### Current: POC (v0.1)
-
-- [x] Hacker News data ingestion
-- [x] Pattern-based topic extraction
-- [x] Graph-based pulse scoring
-- [x] REST API with filtering
-- [x] Interactive network visualization
-
-### Next: Enhanced Analysis (v0.2)
-
-- [ ] Real-time data streaming
-- [ ] ML-based topic extraction (NER, embeddings)
-- [ ] Historical trend comparison
-- [ ] Alert notifications
-
-### Future: Platform (v1.0)
-
-- [ ] Multi-community support (Reddit, Discord, Twitter)
-- [ ] Custom topic taxonomies
-- [ ] Team collaboration features
-- [ ] API for third-party integrations
-
----
-
-## Why Community Pulse?
+## Comparison
 
 ```mermaid
 flowchart LR
-    subgraph Before["Without Community Pulse"]
+    subgraph Before["Count-Based"]
         B1[Manual monitoring]
-        B2[Reactive decisions]
-        B3[Missed opportunities]
+        B2[Reactive]
     end
 
-    subgraph After["With Community Pulse"]
+    subgraph After["Pulse-Based"]
         A1[Automated detection]
-        A2[Proactive insights]
-        A3[Early advantage]
+        A2[Proactive]
     end
 
-    Before -->|Transform| After
+    Before -->|vs| After
 
     style Before fill:#fee,stroke:#c00
     style After fill:#efe,stroke:#0a0
 ```
 
-| Before | After |
-|--------|-------|
-| Manually scanning feeds | Automated pulse monitoring |
-| Reacting to established trends | Detecting emergence early |
-| Gut feeling decisions | Data-driven prioritization |
-| Missing cross-topic connections | Visualizing topic networks |
+| Metric | Count-Based | Pulse-Based |
+|--------|-------------|-------------|
+| Detection Time | Post-peak | Emerging |
+| Signal | Volume only | Velocity + Network |
+| Context | List | Graph |
 
 ---
 
 ## Get Started
 
-**Try it locally in 5 minutes:**
+**Local Setup:**
 
 ```bash
 git clone https://github.com/athola/community-pulse
@@ -323,32 +268,29 @@ docker compose up -d
 open http://localhost:8081
 ```
 
-**Explore the API:**
+**API Check:**
 
 ```bash
-curl http://localhost:8000/pulse/current
-curl http://localhost:8000/pulse/graph
+curl http://localhost:8001/pulse/current
 ```
 
 ---
 
 ## Summary
 
-**Community Pulse** transforms noisy community discussions into actionable trend intelligence by:
+**Community Pulse** provides actionable trend intelligence by:
 
-1. **Detecting velocity**—finding topics accelerating faster than baseline
-2. **Measuring convergence**—identifying organic emergence from independent voices
-3. **Analyzing networks**—revealing how information flows between topic clusters
-4. **Scoring pulse**—combining signals into a single actionable metric
+1. **Detecting velocity**: Finding topics accelerating faster than baseline.
+2. **Measuring convergence**: Identifying organic emergence.
+3. **Analyzing networks**: Mapping information flow between topics.
+4. **Scoring pulse**: Combining signals into a single metric.
 
-The result: **See emerging trends before they peak.**
+The result: **Early detection of rising topics.**
 
 ---
 
 <div align="center">
 
 **Community Pulse** | [GitHub](https://github.com/athola/community-pulse) | MIT License
-
-*Detect the pulse of your community.*
 
 </div>

@@ -5,11 +5,11 @@
 [![Coverage](https://img.shields.io/badge/coverage-95%25-brightgreen.svg)](htmlcov/)
 [![License: MIT](https://img.shields.io/badge/license-MIT-blue.svg)](LICENSE)
 
-Detect emerging collective attention in online communities using velocity and co-occurrence graph analysis.
+Identifies trending topics using velocity and co-occurrence graph analysis.
 
 ## Overview
 
-Community Pulse identifies trending topics by analyzing the "pulse" of community discussions. It combines multiple signals:
+Community Pulse ranks topics by combining five signals:
 
 - **Velocity (25%)** - Rate of change in topic mentions
 - **Eigenvector Centrality (25%)** - Connection to other important topics (convergence)
@@ -20,69 +20,51 @@ Community Pulse identifies trending topics by analyzing the "pulse" of community
 ## Architecture
 
 ```
-React Native Web (Expo) → FastAPI → Supabase (PostgreSQL + pg_graphql)
-                                  → rustworkx (graph analysis)
+React Native Web (Expo) -> FastAPI -> Supabase (PostgreSQL + pg_graphql)
+                                   -> rustworkx (graph analysis)
 ```
 
 ## Quick Start
 
-### Prerequisites
+### Docker (Recommended)
 
-- Python 3.12+
-- Node.js 18+
-- Docker with Compose v2 (optional, for local PostgreSQL)
-
-**Docker Setup (Ubuntu/Debian):**
-```bash
-# Install Docker and Compose v2
-sudo apt update && sudo apt install -y docker.io docker-compose-v2
-
-# Add your user to the docker group (avoids permission errors)
-sudo usermod -aG docker $USER
-
-# Apply group changes (or log out and back in)
-newgrp docker
-```
-
-### Demo (Quick)
+Requires Docker Compose v2.
 
 ```bash
-# Install dependencies
-uv sync && cd frontend && npm install && cd ..
-
-# View demo instructions
-make demo
-```
-
-Then run in separate terminals:
-- `make demo-api` - Backend at http://localhost:8000 (API docs at /docs)
-- `make demo-mobile` - Frontend at http://localhost:8081
-
-### Backend Setup (Manual)
-
-```bash
-# Install dependencies
+# 1. Install dependencies
 uv sync
+cd frontend && npm install && cd ..
 
-# Start local database
+# 2. Start the database
 docker compose up -d db
 
-# Set environment
+# 3. Configure environment
 cp .env.example .env
 
-# Run API server
+# 4. Start the frontend
+cd frontend && npm start
+# Open http://localhost:8081
+
+# 5. Start the backend (new terminal)
 uv run uvicorn community_pulse.api.app:app --reload
+# API docs at http://localhost:8001/docs
 ```
 
-### Frontend Setup (Manual)
+### Manual Setup
+
+If you prefer running PostgreSQL locally without Docker:
 
 ```bash
+# Backend
+uv sync
+cp .env.example .env
+uv run uvicorn community_pulse.api.app:app --reload
+
+# Frontend
 cd frontend
 npm install
 npm start
 ```
-
-Open http://localhost:8081 in your browser.
 
 ## API Endpoints
 

@@ -60,3 +60,6 @@ docs/*.pdf
 
 # Planning docs (ephemeral LLM-generated, not part of project)
 docs/plans/
+
+# Misc
+commit_msg.txt

@@ -57,7 +57,7 @@ The POC demonstrates this hypothesis through the API:
 
 ```bash
 # Our pulse ranking (velocity + convergence + network)
-curl http://localhost:8000/pulse/current | jq '.topics[:5] | .[].slug'
+curl http://localhost:8001/pulse/current | jq '.topics[:5] | .[].slug'
 # Output: ["ai", "rust", "python", "javascript", "startup"]
 
 # Compare to simple mention count (would need separate endpoint)
@@ -293,7 +293,7 @@ docker compose up -d
 uv run uvicorn community_pulse.api.app:app --reload
 
 # Query current pulse
-curl http://localhost:8000/pulse/current | jq '.topics[:3]'
+curl http://localhost:8001/pulse/current | jq '.topics[:3]'
 ```
 
 **Sample output**:

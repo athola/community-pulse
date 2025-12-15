@@ -37,7 +37,7 @@ score = 0.25 * velocity
 - **PageRank (15%)** - Network importance in directed topic flow
 - **Author diversity (15%)** - Multiple independent voices (prevents single-author spikes)
 
-All components are normalized to [0, 1] before combination, ensuring the final score is also in [0, 1].
+All components are normalized to [0, 1] before combination; the final score falls within [0, 1].
 
 ---
 

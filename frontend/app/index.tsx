@@ -13,7 +13,7 @@ import { FlowGraph } from '../components/FlowGraph';
 import { TopicCard } from '../components/TopicCard';
 import { usePulseGraph } from '../hooks/usePulseGraph';
 
-const API_URL = process.env.EXPO_PUBLIC_API_URL || 'http://localhost:8000';
+const API_URL = process.env.EXPO_PUBLIC_API_URL || 'http://localhost:8001';
 
 interface SamplePost {
   id: string;

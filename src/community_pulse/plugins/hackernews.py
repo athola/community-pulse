@@ -29,7 +29,7 @@ class HackerNewsPlugin:
     - Story IDs cached for 5 minutes (300 seconds)
     - Individual items cached for 2 minutes (120 seconds)
 
-    Usage (recommended - context manager for guaranteed cleanup):
+    Usage (recommended - context manager for automated cleanup):
         with HackerNewsPlugin() as plugin:
             posts = plugin.fetch_posts(limit=100)
             for post in posts:
@@ -76,7 +76,7 @@ class HackerNewsPlugin:
         exc_val: BaseException | None,
         exc_tb: object,
     ) -> Literal[False]:
-        """Context manager exit - ensures cleanup."""
+        """Context manager exit - performs cleanup."""
         self.close()
         return False
 

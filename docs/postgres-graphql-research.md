@@ -5,19 +5,19 @@ PostgreSQL itself doesn’t expose GraphQL natively, but there are mature, produ
 
 ## Options
 ### 1) pg_graphql extension (database-native)
-- Ships as a Postgres extension that adds a `graphql.resolve()` SQL function; it auto-generates a GraphQL schema from tables, views, and foreign keys. No separate app server needed. citeturn0search0
-- Designed to interop with PostgREST and respects Postgres roles/RLS; Supabase and Neon ship it managed, and it can be built for self-hosted Postgres. citeturn0search0turn0search1
-- Strengths: lowest latency (runs inside Postgres), minimal ops, schema stays in sync automatically; Supabase exposes it directly as a GraphQL endpoint with CRUD, relationships, and computed fields. citeturn0search5
+- Ships as a Postgres extension that adds a `graphql.resolve()` SQL function; it auto-generates a GraphQL schema from tables, views, and foreign keys. No separate app server needed.
+- Designed to interop with PostgREST and respects Postgres roles/RLS; Supabase and Neon ship it managed, and it can be built for self-hosted Postgres.
+- Strengths: lowest latency (runs inside Postgres), minimal ops, schema stays in sync automatically; Supabase exposes it directly as a GraphQL endpoint with CRUD, relationships, and computed fields.
 - Gaps: extension is younger than Hasura/PostGraphile; fewer built-in auth/policy features (rely on RLS) and no custom business-logic resolvers beyond SQL functions.
 
 ### 2) Hasura GraphQL Engine (sidecar)
-- External engine that introspects Postgres and exposes GraphQL with queries, mutations, and **realtime subscriptions/streaming** out of the box. citeturn0search4turn0search6
+- External engine that introspects Postgres and exposes GraphQL with queries, mutations, and **realtime subscriptions/streaming** out of the box.
 - Strong authorization model (role-based, row-level), remote schema stitching, event triggers/webhooks, cron triggers.
 - Strengths: quickest path to rich API + realtime, great admin UI, production hardened.
 - Gaps: extra service to run; advanced custom logic often done via remote schemas / actions; commercial features for some use cases.
 
 ### 3) PostGraphile (Node.js library/server)
-- Open-source Node server that generates a GraphQL API directly from Postgres schema, respects RLS, and supports subscriptions and plugins. citeturn1search1
+- Open-source Node server that generates a GraphQL API directly from Postgres schema, respects RLS, and supports subscriptions and plugins.
 - Strengths: fully self-hosted, plugin system, good TypeScript support, works well with existing Node stacks.
 - Gaps: requires a Node runtime; less turnkey UI than Hasura; subscriptions need websocket deployment.
 

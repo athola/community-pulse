@@ -66,7 +66,7 @@ def build_directed_graph(
     """Build a directed graph with bidirectional edges for PageRank.
 
     PageRank requires a directed graph. We simulate undirected behavior
-    by adding edges in both directions (A→B and B→A).
+    by adding edges in both directions (A->B and B->A).
     """
     digraph: rx.PyDiGraph = rx.PyDiGraph()
 

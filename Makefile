@@ -11,7 +11,7 @@ NPM?=npm
 PRE_COMMIT_HOME?=$(CURDIR)/.cache/pre-commit
 VIRTUALENV_APP_DATA?=$(PRE_COMMIT_HOME)/virtualenv
 
-.PHONY: help uv-sync install-frontend lint format typecheck test check demo demo-api demo-mobile demo-db hooks hooks-clean build clean
+.PHONY: help uv-sync install-frontend lint format typecheck test check demo demo-api demo-mobile demo-db demo-down hooks hooks-clean build clean
 .DELETE_ON_ERROR:
 
 help:
@@ -27,6 +27,7 @@ help:
 	@printf "  demo-db          Start PostgreSQL via docker compose\n"
 	@printf "  demo-api         Launch FastAPI app with uvicorn\n"
 	@printf "  demo-mobile      Start React Native dev server\n"
+	@printf "  demo-down        Stop all containers and remove volumes\n"
 	@printf "  build            Build sdist/wheel with uv\n"
 	@printf "  hooks            Install git hooks via pre-commit (cached locally)\n"
 	@printf "  hooks-clean      Remove pre-commit hooks\n"
@@ -61,19 +62,24 @@ demo:
 	@echo "Starting Community Pulse demo..."
 	@echo ""
 	@echo "Run these commands in separate terminals:"
-	@echo "  Terminal 1: make demo-api    # Starts backend at http://localhost:8000"
+	@echo "  Terminal 1: make demo-api    # Starts backend at http://localhost:8001"
 	@echo "  Terminal 2: make demo-mobile # Starts frontend at http://localhost:8081"
 	@echo ""
 	@echo "Then open http://localhost:8081 in your browser."
 	@echo ""
-	@echo "API docs available at http://localhost:8000/docs"
+	@echo "API docs available at http://localhost:8001/docs"
 
 demo-db:
 	docker compose up -d db
 
+demo-down:
+	@# Kill API server on port 8001 if running
+	-@lsof -ti :8001 | xargs -r kill 2>/dev/null || true
+	docker compose down -v
+
 # Demo targets are blocking; run in separate shells/tmux panes.
 demo-api:
-	$(UV) run uvicorn $(APP_MODULE) --reload --host 0.0.0.0 --port 8000
+	$(UV) run uvicorn $(APP_MODULE) --reload --host 0.0.0.0 --port 8001
 
 demo-mobile:
 	@if [ -d "$(MOBILE_DIR)" ]; then \
