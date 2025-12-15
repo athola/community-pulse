@@ -131,8 +131,7 @@ class LiveTopicResponse(BaseModel):
     temporal_velocity: float | None = Field(
         default=None,
         description=(
-            "True velocity vs historical baseline "
-            "(>1 = growing, null = no history)"
+            "True velocity vs historical baseline (>1 = growing, null = no history)"
         ),
     )
     mention_count: int = Field(description="Total mentions in time window")
