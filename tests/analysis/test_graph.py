@@ -50,7 +50,7 @@ def test_compute_centrality() -> None:
     assert ai_idx in centrality
     assert "betweenness" in centrality[ai_idx]
     assert "eigenvector" in centrality[ai_idx]
-    assert "pagerank" in centrality[ai_idx]
+    assert "degree_centrality" in centrality[ai_idx]
 
 
 def test_detect_clusters_connected() -> None:

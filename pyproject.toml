@@ -113,9 +113,7 @@ check_untyped_defs = false
 disallow_untyped_decorators = false
 warn_return_any = false
 
-[[tool.mypy.overrides]]
-module = ["seed_db"]
-ignore_missing_imports = true
+# Note: seed_db uses inline type: ignore for dotenv import
 
 [tool.uv]
 default-groups = ["dev"]

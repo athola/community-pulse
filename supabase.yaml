@@ -1,6 +1,10 @@
-# render.yaml
-# Database: Use Supabase free tier (includes pg_graphql)
-# Set DATABASE_URL in Render dashboard from Supabase connection string
+# supabase.yaml - Render deployment config for Supabase-backed Community Pulse
+#
+# Deployment Strategy:
+# - API + Frontend: Render.com (free tier)
+# - Database: Supabase PostgreSQL (free tier, includes pg_graphql)
+#
+# Set DATABASE_URL in Render dashboard from Supabase connection string.
 services:
   - type: web
     name: community-pulse-api

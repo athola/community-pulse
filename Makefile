@@ -11,7 +11,7 @@ NPM?=npm
 PRE_COMMIT_HOME?=$(CURDIR)/.cache/pre-commit
 VIRTUALENV_APP_DATA?=$(PRE_COMMIT_HOME)/virtualenv
 
-.PHONY: help uv-sync install-frontend lint format typecheck test dogfood demo-api demo-mobile hooks hooks-clean build clean
+.PHONY: help uv-sync install-frontend lint format typecheck test check demo demo-api demo-mobile hooks hooks-clean build clean
 .DELETE_ON_ERROR:
 
 help:
@@ -22,7 +22,8 @@ help:
 	@printf "  format           Apply ruff format\n"
 	@printf "  typecheck        Run ty and mypy on Python sources\n"
 	@printf "  test             Run pytest suite\n"
-	@printf "  dogfood          lint + typecheck + test\n"
+	@printf "  check            Run lint, typecheck, and test\n"
+	@printf "  demo             Launch API + frontend on localhost (requires two terminals)\n"
 	@printf "  build            Build sdist/wheel with uv\n"
 	@printf "  demo-api         Launch FastAPI app with uvicorn\n"
 	@printf "  demo-mobile      Start React Native dev server\n"
@@ -53,7 +54,18 @@ typecheck:
 test:
 	$(UV) run pytest
 
-dogfood: lint typecheck test
+check: lint typecheck test
+
+demo:
+	@echo "Starting Community Pulse demo..."
+	@echo ""
+	@echo "Run these commands in separate terminals:"
+	@echo "  Terminal 1: make demo-api    # Starts backend at http://localhost:8000"
+	@echo "  Terminal 2: make demo-mobile # Starts frontend at http://localhost:8081"
+	@echo ""
+	@echo "Then open http://localhost:8081 in your browser."
+	@echo ""
+	@echo "API docs available at http://localhost:8000/docs"
 
 # Demo targets are blocking; run in separate shells/tmux panes.
 demo-api:

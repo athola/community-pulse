@@ -1,38 +1,13 @@
 """Velocity and pulse score computation.
 
-Formula Evolution: 4-Signal to 5-Signal Design
------------------------------------------------
+Combines multiple signals to detect emerging collective attention:
+- Velocity (25%): Topic momentum/acceleration
+- Eigenvector centrality (25%): Connection to important topics
+- Betweenness centrality (20%): Bridge topics between clusters
+- PageRank (15%): Flow-based network authority
+- Author diversity (15%): Multiple independent voices
 
-Original Design (4-signal):
-    30% velocity, 30% eigenvector centrality, 25% betweenness, 15% sentiment
-
-Current Implementation (5-signal):
-    25% velocity, 25% eigenvector centrality, 20% betweenness,
-    15% PageRank, 15% author spread
-
-Rationale for Evolution:
-
-1. **Added PageRank (15%)**
-   - Complements eigenvector centrality with flow-based authority
-   - Eigenvector measures importance via connections to important nodes
-   - PageRank measures influence via information flow patterns
-   - Together they provide richer understanding of topic prominence
-
-2. **Replaced sentiment with author spread (15%)**
-   - More objective: count-based vs. subjective sentiment analysis
-   - Easier to compute: no NLP model required
-   - Better proxy for convergence: diverse voices = genuine emergence
-   - Avoids sentiment analysis pitfalls (sarcasm, domain-specificity)
-
-3. **Rebalanced weights to 25/25/20/15/15**
-   - Velocity and eigenvector remain primary signals (25% each)
-   - Betweenness reduced to 20% to accommodate new signals
-   - PageRank and author spread at 15% each as supporting signals
-   - Total still 100%, all signals contribute meaningfully
-
-This evolution was driven by POC implementation findings and maintains
-the core principle: detect emergent collective movement via multi-signal
-convergence.
+See docs/math.md for detailed formula rationale and evolution history.
 """
 
 import logging

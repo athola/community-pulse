@@ -6,7 +6,7 @@ from concurrent.futures import ThreadPoolExecutor, as_completed
 import pytest
 from sqlalchemy.engine import Engine
 
-from community_pulse.db import connection
+from community_pulse.db.connection import SessionFactory
 
 
 class TestEngineSingleton:
@@ -16,28 +16,26 @@ class TestEngineSingleton:
         """Test that get_engine() returns the same instance in sequence."""
         monkeypatch.setenv("DATABASE_URL", "sqlite:///:memory:")
 
-        # Store original state
-        original_engine = connection._state.engine
-        connection._state.engine = None
+        # Reset factory state
+        SessionFactory.reset()
 
         try:
-            engine1 = connection.get_engine()
-            engine2 = connection.get_engine()
-            engine3 = connection.get_engine()
+            engine1 = SessionFactory.get_engine()
+            engine2 = SessionFactory.get_engine()
+            engine3 = SessionFactory.get_engine()
 
             assert engine1 is engine2
             assert engine2 is engine3
             assert isinstance(engine1, Engine)
         finally:
-            connection._state.engine = original_engine
+            SessionFactory.reset()
 
     def test_concurrent_get_engine_returns_same_instance(self, monkeypatch):
         """Test that concurrent calls from multiple threads get the same engine."""
         monkeypatch.setenv("DATABASE_URL", "sqlite:///:memory:")
 
-        # Store original state
-        original_engine = connection._state.engine
-        connection._state.engine = None
+        # Reset factory state
+        SessionFactory.reset()
 
         try:
             num_threads = 10
@@ -45,7 +43,7 @@ class TestEngineSingleton:
 
             def get_engine(index):
                 """Get engine and store in list."""
-                engines[index] = connection.get_engine()
+                engines[index] = SessionFactory.get_engine()
 
             threads = [
                 threading.Thread(target=get_engine, args=(i,))
@@ -65,23 +63,21 @@ class TestEngineSingleton:
             assert all(engine is first_engine for engine in engines)
             assert isinstance(first_engine, Engine)
         finally:
-            connection._state.engine = original_engine
+            SessionFactory.reset()
 
     def test_engine_created_once_with_threadpool(self, monkeypatch):
         """Test engine singleton with ThreadPoolExecutor."""
         monkeypatch.setenv("DATABASE_URL", "sqlite:///:memory:")
 
-        # Store original state
-        original_engine = connection._state.engine
-        connection._state.engine = None
+        # Reset factory state
+        SessionFactory.reset()
 
         try:
             num_workers = 20
 
             with ThreadPoolExecutor(max_workers=num_workers) as executor:
-                futures = [
-                    executor.submit(connection.get_engine) for _ in range(num_workers)
-                ]
+                fn = SessionFactory.get_engine
+                futures = [executor.submit(fn) for _ in range(num_workers)]
                 engines = [future.result() for future in as_completed(futures)]
 
             # All should be the same instance
@@ -89,7 +85,7 @@ class TestEngineSingleton:
             assert all(engine is first_engine for engine in engines)
             assert isinstance(first_engine, Engine)
         finally:
-            connection._state.engine = original_engine
+            SessionFactory.reset()
 
 
 class TestEnvironmentVariables:
@@ -99,68 +95,64 @@ class TestEnvironmentVariables:
         """Test that DATABASE_URL changes are ignored after engine is created."""
         monkeypatch.setenv("DATABASE_URL", "sqlite:///:memory:")
 
-        # Store original state
-        original_engine = connection._state.engine
-        connection._state.engine = None
+        # Reset factory state
+        SessionFactory.reset()
 
         try:
             # Create engine with first URL
-            engine1 = connection.get_engine()
+            engine1 = SessionFactory.get_engine()
             original_url = str(engine1.url)
 
             # Change DATABASE_URL
             monkeypatch.setenv("DATABASE_URL", "sqlite:///different.db")
 
             # Get engine again - should return cached engine
-            engine2 = connection.get_engine()
+            engine2 = SessionFactory.get_engine()
 
             assert engine1 is engine2
             assert str(engine2.url) == original_url
         finally:
-            connection._state.engine = original_engine
+            SessionFactory.reset()
 
     def test_malformed_database_url_raises_error(self, monkeypatch):
         """Test error handling when DATABASE_URL is malformed."""
         monkeypatch.setenv("DATABASE_URL", "not-a-valid-url")
 
-        # Store original state
-        original_engine = connection._state.engine
-        connection._state.engine = None
+        # Reset factory state
+        SessionFactory.reset()
 
         try:
             # SQLAlchemy raises ArgumentError for malformed URL
             with pytest.raises(Exception):  # noqa: B017
-                connection.get_engine()
+                SessionFactory.get_engine()
         finally:
-            connection._state.engine = original_engine
+            SessionFactory.reset()
 
     def test_missing_database_url_raises_valueerror(self, monkeypatch):
         """Test that missing DATABASE_URL raises ValueError before engine creation."""
         monkeypatch.delenv("DATABASE_URL", raising=False)
 
-        # Store original state
-        original_engine = connection._state.engine
-        connection._state.engine = None
+        # Reset factory state
+        SessionFactory.reset()
 
         try:
             with pytest.raises(
                 ValueError, match="DATABASE_URL environment variable is required"
             ):
-                connection.get_engine()
+                SessionFactory.get_engine()
         finally:
-            connection._state.engine = original_engine
+            SessionFactory.reset()
 
 
 class TestThreadSafety:
-    """Test thread safety of double-check locking pattern."""
+    """Test thread safety of engine creation."""
 
     def test_rapid_concurrent_engine_access(self, monkeypatch):
         """Test that rapid concurrent calls don't cause race conditions."""
         monkeypatch.setenv("DATABASE_URL", "sqlite:///:memory:")
 
-        # Store original state
-        original_engine = connection._state.engine
-        connection._state.engine = None
+        # Reset factory state
+        SessionFactory.reset()
 
         try:
             num_iterations = 100
@@ -171,7 +163,7 @@ class TestThreadSafety:
                 """Rapidly access engine multiple times."""
                 local_results = []
                 for _ in range(10):
-                    local_results.append(id(connection.get_engine()))
+                    local_results.append(id(SessionFactory.get_engine()))
                 with lock:
                     results.extend(local_results)
 
@@ -185,43 +177,26 @@ class TestThreadSafety:
             # All engine IDs should be the same
             assert len(set(results)) == 1
         finally:
-            connection._state.engine = original_engine
+            SessionFactory.reset()
 
-    def test_lock_protects_engine_creation(self, monkeypatch):
-        """Test that the lock properly protects engine creation."""
+    def test_factory_reset_clears_engine(self, monkeypatch):
+        """Test that reset() clears the engine properly."""
         monkeypatch.setenv("DATABASE_URL", "sqlite:///:memory:")
 
-        # Store original state
-        original_engine = connection._state.engine
-        connection._state.engine = None
+        # Reset factory state
+        SessionFactory.reset()
 
         try:
-            # Track when threads attempt to create engine
-            creation_attempts = []
-            lock = threading.Lock()
+            # Create engine
+            engine1 = SessionFactory.get_engine()
+            assert engine1 is not None
 
-            def track_and_get_engine(thread_id):
-                """Track creation attempts and get engine."""
-                # Check if we would enter the creation block
-                if connection._state.engine is None:
-                    with lock:
-                        creation_attempts.append(thread_id)
-                connection.get_engine()
+            # Reset
+            SessionFactory.reset()
 
-            num_threads = 20
-            threads = [
-                threading.Thread(target=track_and_get_engine, args=(i,))
-                for i in range(num_threads)
-            ]
-
-            for thread in threads:
-                thread.start()
-            for thread in threads:
-                thread.join()
-
-            # Engine should exist now
-            assert connection._state.engine is not None
-            # At least one thread should have attempted creation
-            assert len(creation_attempts) > 0
+            # Create new engine - should be different
+            engine2 = SessionFactory.get_engine()
+            assert engine2 is not None
+            assert engine1 is not engine2
         finally:
-            connection._state.engine = original_engine
+            SessionFactory.reset()

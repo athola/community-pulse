@@ -36,10 +36,10 @@ HN_BASE_URL = "https://news.ycombinator.com/item?id="
 def generate_topic_id(slug: str) -> str:
     """Generate a deterministic ID from slug.
 
-    Uses SHA-256 hash truncated to 12 characters for stable, unique IDs.
-    This ensures topic IDs remain consistent across requests for the same slug.
+    Uses BLAKE2b hash (faster than SHA-256) truncated to 12 characters for
+    stable, unique IDs. We only need uniqueness, not cryptographic security.
     """
-    return hashlib.sha256(slug.encode()).hexdigest()[:12]
+    return hashlib.blake2b(slug.encode(), digest_size=6).hexdigest()
 
 
 def _mock_topics() -> list[TopicNode]:

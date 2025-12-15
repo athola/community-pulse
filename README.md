@@ -32,7 +32,21 @@ React Native Web (Expo) → FastAPI → Supabase (PostgreSQL + pg_graphql)
 - Node.js 18+
 - Docker (optional, for local PostgreSQL)
 
-### Backend Setup
+### Demo (Quick)
+
+```bash
+# Install dependencies
+uv sync && cd frontend && npm install && cd ..
+
+# View demo instructions
+make demo
+```
+
+Then run in separate terminals:
+- `make demo-api` - Backend at http://localhost:8000 (API docs at /docs)
+- `make demo-mobile` - Frontend at http://localhost:8081
+
+### Backend Setup (Manual)
 
 ```bash
 # Install dependencies
@@ -48,7 +62,7 @@ cp .env.example .env
 uv run uvicorn community_pulse.api.app:app --reload
 ```
 
-### Frontend Setup
+### Frontend Setup (Manual)
 
 ```bash
 cd frontend

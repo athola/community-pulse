@@ -259,25 +259,25 @@ flowchart TB
 
 ### Current: POC (v0.1)
 
-✅ Hacker News data ingestion
-✅ Pattern-based topic extraction
-✅ Graph-based pulse scoring
-✅ REST API with filtering
-✅ Interactive network visualization
+- [x] Hacker News data ingestion
+- [x] Pattern-based topic extraction
+- [x] Graph-based pulse scoring
+- [x] REST API with filtering
+- [x] Interactive network visualization
 
 ### Next: Enhanced Analysis (v0.2)
 
-⬜ Real-time data streaming
-⬜ ML-based topic extraction (NER, embeddings)
-⬜ Historical trend comparison
-⬜ Alert notifications
+- [ ] Real-time data streaming
+- [ ] ML-based topic extraction (NER, embeddings)
+- [ ] Historical trend comparison
+- [ ] Alert notifications
 
 ### Future: Platform (v1.0)
 
-⬜ Multi-community support (Reddit, Discord, Twitter)
-⬜ Custom topic taxonomies
-⬜ Team collaboration features
-⬜ API for third-party integrations
+- [ ] Multi-community support (Reddit, Discord, Twitter)
+- [ ] Custom topic taxonomies
+- [ ] Team collaboration features
+- [ ] API for third-party integrations
 
 ---
 

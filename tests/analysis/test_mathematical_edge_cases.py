@@ -423,19 +423,11 @@ class TestNumericalStability:
 
 
 class TestIntegrationEdgeCases:
-    """Integration tests for full pipeline edge cases."""
+    """Integration tests for full pipeline edge cases.
 
-    def test_pulse_compute_empty_posts(self):
-        """Empty posts list should not crash."""
-        # This would be tested in services/test_pulse_compute.py
-        # Placeholder for integration test
-        pass
-
-    def test_pulse_compute_zero_max_authors(self):
-        """Zero authors in post set."""
-        # This would be tested in services/test_pulse_compute.py
-        # Placeholder for integration test
-        pass
+    Note: Service-level tests (empty posts, zero authors) moved to
+    tests/test_pulse_compute.py for proper service layer testing.
+    """
 
     def test_large_graph_centrality(self):
         """Large graph (n=100) should compute centrality without issues."""

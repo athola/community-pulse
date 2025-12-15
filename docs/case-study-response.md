@@ -141,28 +141,22 @@ Users can **scan** the visualization in seconds, then **drill down** into specif
 
 ### Current Architecture (10K users)
 
-```
-┌─────────────┐     ┌─────────────┐     ┌─────────────┐
-│  Ingestion  │────▶│  PostgreSQL │────▶│   FastAPI   │
-│   (batch)   │     │  (Supabase) │     │   (sync)    │
-└─────────────┘     └─────────────┘     └─────────────┘
+```mermaid
+flowchart LR
+    Ingestion["Ingestion<br/>(batch)"] --> PostgreSQL["PostgreSQL<br/>(Supabase)"]
+    PostgreSQL --> FastAPI["FastAPI<br/>(sync)"]
 ```
 
 This works for POC and early production. PostgreSQL handles concurrent reads well.
 
 ### Scaling Strategy (100K+ users)
 
-```
-┌─────────────┐     ┌─────────────┐     ┌─────────────┐     ┌─────────────┐
-│   Kafka/    │────▶│  PostgreSQL │────▶│    Redis    │────▶│   FastAPI   │
-│   Stream    │     │  (primary)  │     │   (cache)   │     │   (async)   │
-└─────────────┘     └─────────────┘     └─────────────┘     └─────────────┘
-                           │
-                           ▼
-                    ┌─────────────┐
-                    │ Materialized│
-                    │   Views     │
-                    └─────────────┘
+```mermaid
+flowchart LR
+    Kafka["Kafka/<br/>Stream"] --> PostgreSQL["PostgreSQL<br/>(primary)"]
+    PostgreSQL --> Redis["Redis<br/>(cache)"]
+    Redis --> FastAPI["FastAPI<br/>(async)"]
+    PostgreSQL --> MV["Materialized<br/>Views"]
 ```
 
 ### Specific Scaling Decisions
@@ -220,45 +214,37 @@ class Post(Base):
 
 ### Architecture Diagram
 
-```
-┌──────────────────────────────────────────────────────────────────┐
-│                         FRONTEND                                  │
-│  ┌────────────────┐  ┌────────────────┐  ┌────────────────┐     │
-│  │  React Native  │  │  Force Graph   │  │  TanStack      │     │
-│  │  Web (Expo)    │  │  Visualization │  │  Query         │     │
-│  └────────────────┘  └────────────────┘  └────────────────┘     │
-└──────────────────────────────────────────────────────────────────┘
-                              │
-                              ▼ REST API
-┌──────────────────────────────────────────────────────────────────┐
-│                          BACKEND                                  │
-│  ┌────────────────┐  ┌────────────────┐  ┌────────────────┐     │
-│  │    FastAPI     │  │   Pydantic     │  │   SQLAlchemy   │     │
-│  │   (routing)    │  │   (schemas)    │  │   (ORM)        │     │
-│  └────────────────┘  └────────────────┘  └────────────────┘     │
-│                                                                   │
-│  ┌────────────────────────────────────────────────────────┐     │
-│  │                  ANALYSIS ENGINE                        │     │
-│  │  ┌──────────┐  ┌──────────┐  ┌──────────┐             │     │
-│  │  │ Velocity │  │  Graph   │  │ Cluster  │             │     │
-│  │  │ Compute  │  │Centrality│  │Detection │             │     │
-│  │  └──────────┘  └──────────┘  └──────────┘             │     │
-│  │                   rustworkx                            │     │
-│  └────────────────────────────────────────────────────────┘     │
-└──────────────────────────────────────────────────────────────────┘
-                              │
-                              ▼
-┌──────────────────────────────────────────────────────────────────┐
-│                         DATABASE                                  │
-│  ┌────────────────────────────────────────────────────────┐     │
-│  │                    PostgreSQL                           │     │
-│  │  ┌──────────┐  ┌──────────┐  ┌──────────┐             │     │
-│  │  │ authors  │  │  posts   │  │  topics  │             │     │
-│  │  └──────────┘  └──────────┘  └──────────┘             │     │
-│  │                 post_topics (junction)                 │     │
-│  └────────────────────────────────────────────────────────┘     │
-│                        Supabase                                   │
-└──────────────────────────────────────────────────────────────────┘
+```mermaid
+flowchart TB
+    subgraph Frontend["FRONTEND"]
+        RN["React Native<br/>Web (Expo)"]
+        FG["Force Graph<br/>Visualization"]
+        TQ["TanStack<br/>Query"]
+    end
+
+    subgraph Backend["BACKEND"]
+        FA["FastAPI<br/>(routing)"]
+        PY["Pydantic<br/>(schemas)"]
+        SA["SQLAlchemy<br/>(ORM)"]
+
+        subgraph Engine["ANALYSIS ENGINE (rustworkx)"]
+            VC["Velocity<br/>Compute"]
+            GC["Graph<br/>Centrality"]
+            CD["Cluster<br/>Detection"]
+        end
+    end
+
+    subgraph Database["DATABASE (Supabase)"]
+        subgraph PG["PostgreSQL"]
+            authors
+            posts
+            topics
+            junc["post_topics"]
+        end
+    end
+
+    Frontend -->|REST API| Backend
+    Backend --> Database
 ```
 
 ### Key Constraints (Prioritized)
@@ -349,7 +335,8 @@ These are documented in GitHub issues for future work:
 
 ### Screenshot of Working POC
 
-![Community Pulse Dashboard](../assets/pulse-screenshot.png)
+<!-- Image path relative to repository root for PDF compatibility -->
+![Community Pulse Dashboard](https://raw.githubusercontent.com/athola/community-pulse/main/assets/pulse-screenshot.png)
 
 The frontend shows:
 - **Cards view**: Ranked topics with pulse scores and velocity indicators

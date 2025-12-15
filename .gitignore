@@ -57,3 +57,6 @@ npm-debug.log*
 
 # Generated assets
 docs/*.pdf
+
+# Planning docs (ephemeral LLM-generated, not part of project)
+docs/plans/

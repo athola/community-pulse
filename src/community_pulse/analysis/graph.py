@@ -32,9 +32,11 @@ def build_topic_graph(
 ) -> tuple[rx.PyGraph, dict[str, int]]:
     """Build an undirected topic co-occurrence graph.
 
-    Returns
-    -------
-        Tuple of (graph, topic_id_to_node_index mapping)
+    Args:
+        cooccurrence_data: List of topic pair co-occurrence data.
+
+    Returns:
+        Tuple of (graph, topic_id_to_node_index mapping).
 
     """
     graph: rx.PyGraph = rx.PyGraph()
@@ -91,9 +93,12 @@ def build_directed_graph(
 def compute_centrality(graph: rx.PyGraph) -> dict[int, dict[str, float]]:
     """Compute centrality metrics for all nodes.
 
-    Returns
-    -------
-        Dict mapping node index to centrality metrics.
+    Args:
+        graph: Undirected graph to compute centrality on.
+
+    Returns:
+        Dict mapping node index to centrality metrics (betweenness, eigenvector,
+        degree_centrality). Note: 'degree_centrality' is a fallback for PageRank.
 
     """
     if graph.num_nodes() == 0:
@@ -137,7 +142,7 @@ def compute_centrality(graph: rx.PyGraph) -> dict[int, dict[str, float]]:
         node_idx: {
             "betweenness": betweenness.get(node_idx, 0.0),
             "eigenvector": eigenvector.get(node_idx, 0.0),
-            "pagerank": degree_centrality.get(node_idx, 0.0),
+            "degree_centrality": degree_centrality.get(node_idx, 0.0),
         }
         for node_idx in graph.node_indices()
     }

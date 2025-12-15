@@ -1,48 +1,33 @@
-"""Database connection management.
+"""Database connection management using factory pattern.
 
-FUTURE EXPANSION: Connection Pooling and Session Management
-------------------------------------------------------------
-This module provides SQLAlchemy engine and session management for the persistence layer.
-It is NOT currently used in the POC implementation, which operates statelessly against
-the live Hacker News API without database persistence.
+Provides SQLAlchemy engine and session management for the persistence layer.
+Currently NOT used in POC (operates statelessly against live HN API).
 
 Architecture Pattern:
-    - Thread-safe singleton engine creation with double-checked locking
-    - Connection pooling with pre-ping for reliability
-    - Context manager session factory for clean resource management
+    On-demand factory pattern with lazy initialization. Each call to
+    SessionFactory.create() returns an independent session factory configured
+    for the current environment.
 
 When This Activates:
-    This module will be used when caching, historical tracking, or offline analysis
-    features are implemented. The connection state management is ready to handle
-    concurrent requests in a production environment.
+    When caching, historical tracking, or offline analysis features are
+    implemented. See GitHub issue for database integration roadmap.
 
 Configuration:
     Requires DATABASE_URL environment variable (PostgreSQL connection string).
     Example: postgresql://user:pass@localhost:5432/community_pulse
 
 Related Modules:
-    - db/models.py: SQLAlchemy ORM models that will use these connections
-    - data_sources/: Future repository implementations will call get_session()
+    - db/models.py: SQLAlchemy ORM models
+    - data_sources/: Future repository implementations
 """
 
 import os
-import threading
 from collections.abc import Generator
+from contextlib import contextmanager
 
 from sqlalchemy import create_engine
 from sqlalchemy.engine import Engine
 from sqlalchemy.orm import Session, sessionmaker
-
-
-class _ConnectionState:
-    """Module-level connection state container."""
-
-    engine: Engine | None = None
-    session_factory: sessionmaker[Session] | None = None
-
-
-_state = _ConnectionState()
-_lock = threading.Lock()
 
 
 def get_database_url() -> str:
@@ -53,27 +38,56 @@ def get_database_url() -> str:
     return url
 
 
-def get_engine() -> Engine:
-    """Get or create SQLAlchemy engine."""
-    if _state.engine is None:
-        with _lock:
-            if _state.engine is None:  # Double-check
-                _state.engine = create_engine(get_database_url(), pool_pre_ping=True)
-    assert _state.engine is not None  # noqa: S101 - Type narrowing after lock
-    return _state.engine
+class SessionFactory:
+    """Factory for creating database session factories.
+
+    Uses on-demand creation pattern - each call creates a fresh session factory
+    configured with the current DATABASE_URL. This avoids global state while
+    still supporting connection pooling at the engine level.
+
+    Usage:
+        factory = SessionFactory.create()
+        with factory() as session:
+            # use session
+    """
+
+    _engine: Engine | None = None
+
+    @classmethod
+    def get_engine(cls) -> Engine:
+        """Get or create shared engine (pooling happens at engine level)."""
+        if cls._engine is None:
+            cls._engine = create_engine(get_database_url(), pool_pre_ping=True)
+        return cls._engine
+
+    @classmethod
+    def create(cls) -> sessionmaker[Session]:
+        """Create a new session factory bound to the shared engine."""
+        return sessionmaker(bind=cls.get_engine(), expire_on_commit=False)
+
+    @classmethod
+    def reset(cls) -> None:
+        """Reset engine (useful for testing or reconfiguration)."""
+        if cls._engine is not None:
+            cls._engine.dispose()
+            cls._engine = None
 
 
+@contextmanager
 def get_session() -> Generator[Session, None, None]:
-    """Yield a database session."""
-    if _state.session_factory is None:
-        with _lock:
-            if _state.session_factory is None:  # Double-check
-                _state.session_factory = sessionmaker(
-                    bind=get_engine(), expire_on_commit=False
-                )
-    assert _state.session_factory is not None  # noqa: S101 - Type narrowing
-    session = _state.session_factory()
+    """Context manager for database sessions.
+
+    Usage:
+        with get_session() as session:
+            # use session
+    """
+    factory = SessionFactory.create()
+    session = factory()
     try:
         yield session
+        session.commit()
+    except Exception:
+        session.rollback()
+        raise
     finally:
         session.close()

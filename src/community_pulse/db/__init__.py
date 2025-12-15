@@ -29,7 +29,7 @@ this layer is ready to be activated by implementing a repository pattern in the
 data_sources/ module.
 """
 
-from community_pulse.db.connection import get_engine, get_session
+from community_pulse.db.connection import SessionFactory, get_session
 from community_pulse.db.models import Author, Post, PostTopic, Topic
 
-__all__ = ["get_engine", "get_session", "Author", "Post", "Topic", "PostTopic"]
+__all__ = ["SessionFactory", "get_session", "Author", "Post", "Topic", "PostTopic"]

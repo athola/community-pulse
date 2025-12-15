@@ -196,7 +196,7 @@ class TestGraphBuilding:
             assert node_idx in centrality
             assert "betweenness" in centrality[node_idx]
             assert "eigenvector" in centrality[node_idx]
-            assert "pagerank" in centrality[node_idx]
+            assert "degree_centrality" in centrality[node_idx]
 
         # AI should have high centrality (connected to 2 others)
         ai_idx = indices["ai"]
