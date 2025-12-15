@@ -30,7 +30,19 @@ React Native Web (Expo) → FastAPI → Supabase (PostgreSQL + pg_graphql)
 
 - Python 3.12+
 - Node.js 18+
-- Docker (optional, for local PostgreSQL)
+- Docker with Compose v2 (optional, for local PostgreSQL)
+
+**Docker Setup (Ubuntu/Debian):**
+```bash
+# Install Docker and Compose v2
+sudo apt update && sudo apt install -y docker.io docker-compose-v2
+
+# Add your user to the docker group (avoids permission errors)
+sudo usermod -aG docker $USER
+
+# Apply group changes (or log out and back in)
+newgrp docker
+```
 
 ### Demo (Quick)
 
@@ -53,7 +65,7 @@ Then run in separate terminals:
 uv sync
 
 # Start local database
-docker-compose up -d db
+docker compose up -d db
 
 # Set environment
 cp .env.example .env

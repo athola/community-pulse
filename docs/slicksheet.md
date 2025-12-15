@@ -319,7 +319,7 @@ flowchart LR
 ```bash
 git clone https://github.com/athola/community-pulse
 cd community-pulse
-docker-compose up -d
+docker compose up -d
 open http://localhost:8081
 ```
 

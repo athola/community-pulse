@@ -11,7 +11,7 @@ NPM?=npm
 PRE_COMMIT_HOME?=$(CURDIR)/.cache/pre-commit
 VIRTUALENV_APP_DATA?=$(PRE_COMMIT_HOME)/virtualenv
 
-.PHONY: help uv-sync install-frontend lint format typecheck test check demo demo-api demo-mobile hooks hooks-clean build clean
+.PHONY: help uv-sync install-frontend lint format typecheck test check demo demo-api demo-mobile demo-db hooks hooks-clean build clean
 .DELETE_ON_ERROR:
 
 help:
@@ -24,9 +24,10 @@ help:
 	@printf "  test             Run pytest suite\n"
 	@printf "  check            Run lint, typecheck, and test\n"
 	@printf "  demo             Launch API + frontend on localhost (requires two terminals)\n"
-	@printf "  build            Build sdist/wheel with uv\n"
+	@printf "  demo-db          Start PostgreSQL via docker compose\n"
 	@printf "  demo-api         Launch FastAPI app with uvicorn\n"
 	@printf "  demo-mobile      Start React Native dev server\n"
+	@printf "  build            Build sdist/wheel with uv\n"
 	@printf "  hooks            Install git hooks via pre-commit (cached locally)\n"
 	@printf "  hooks-clean      Remove pre-commit hooks\n"
 	@printf "  clean            Remove caches, .venv, and coverage files\n"
@@ -66,6 +67,9 @@ demo:
 	@echo "Then open http://localhost:8081 in your browser."
 	@echo ""
 	@echo "API docs available at http://localhost:8000/docs"
+
+demo-db:
+	docker compose up -d db
 
 # Demo targets are blocking; run in separate shells/tmux panes.
 demo-api:

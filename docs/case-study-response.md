@@ -289,7 +289,7 @@ Our POC demonstrates the full hypothesis in working code:
 
 ```bash
 # Start the system
-docker-compose up -d
+docker compose up -d
 uv run uvicorn community_pulse.api.app:app --reload
 
 # Query current pulse
@@ -366,7 +366,7 @@ cd community-pulse
 
 # Backend
 uv sync
-docker-compose up -d db
+docker compose up -d db
 cp .env.example .env
 uv run uvicorn community_pulse.api.app:app --reload
 

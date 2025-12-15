@@ -1,4 +1,5 @@
-# docker-compose.yml
+# Docker Compose configuration for local development
+# Usage: docker compose up -d db
 services:
   db:
     image: postgres:16
