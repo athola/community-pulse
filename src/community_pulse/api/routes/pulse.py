@@ -1,10 +1,13 @@
 """Pulse API endpoints."""
 
 import hashlib
+import logging
 from datetime import datetime, timezone
 from uuid import uuid4
 
-from fastapi import APIRouter, Query
+from fastapi import APIRouter, Query, Request
+from slowapi import Limiter
+from slowapi.util import get_remote_address
 
 from community_pulse.models.pulse import (
     ClusterInfo,
@@ -19,6 +22,11 @@ from community_pulse.models.pulse import (
     TopicNode,
 )
 from community_pulse.services.pulse_compute import compute_live_pulse
+
+logger = logging.getLogger(__name__)
+
+# Rate limiter for this module
+limiter = Limiter(key_func=get_remote_address)
 
 # Thresholds for significant metrics (could be moved to config later)
 SIGNIFICANT_RANK_DIFF = 2  # Topics with >=2 rank difference
@@ -195,10 +203,13 @@ def _mock_topics() -> list[TopicNode]:
             "model": ErrorResponse,
             "description": "Validation error - invalid query parameters",
         },
+        429: {"model": ErrorResponse, "description": "Rate limit exceeded"},
         500: {"model": ErrorResponse, "description": "Internal server error"},
     },
 )
+@limiter.limit("30/minute")
 async def get_current_pulse(
+    request: Request,
     limit: int = Query(20, le=100, description="Max topics to return"),
     offset: int = Query(0, ge=0, description="Number of topics to skip"),
     min_score: float = Query(0.0, ge=0, le=1, description="Minimum pulse score"),
@@ -207,10 +218,18 @@ async def get_current_pulse(
     # Use live data from HN API for real, clickable links
     computed = compute_live_pulse(num_stories=100)
 
+    warning_msg: str | None = None
     if not computed:
         # Fallback to mock data if HN API fails
-        # NOTE: data_source="mock" is included in the response body.
-        # Future enhancement: Also set X-Data-Source header for HTTP-level signaling.
+        # WARNING: Using stale Dec 2023 fixture data - HN API may be unavailable
+        warning_msg = (
+            "Using cached fallback data from Dec 2023. "
+            "HN API may be temporarily unavailable."
+        )
+        logger.warning(
+            "Using fallback mock data - HN API unavailable. "
+            "Response contains stale Dec 2023 fixture data."
+        )
         topics = _mock_topics()
         data_source = "mock"
     else:
@@ -251,6 +270,7 @@ async def get_current_pulse(
         captured_at=datetime.now(timezone.utc),
         data_source=data_source,
         total_count=total_count,
+        warning=warning_msg,
     )
 
 
@@ -262,18 +282,30 @@ async def get_current_pulse(
             "model": ErrorResponse,
             "description": "Validation error - invalid query parameters",
         },
+        429: {"model": ErrorResponse, "description": "Rate limit exceeded"},
         500: {"model": ErrorResponse, "description": "Internal server error"},
     },
 )
+@limiter.limit("20/minute")
 async def get_pulse_graph(
+    request: Request,
     min_edge_weight: int = Query(2, description="Minimum co-occurrence for edges"),
 ) -> GraphResponse:
     """Get topic co-occurrence graph for visualization with live HN data."""
     # Use live data from HN API
     computed = compute_live_pulse(num_stories=100)
 
+    warning_msg: str | None = None
     if not computed:
         # Fallback to mock data if HN API fails
+        warning_msg = (
+            "Using cached fallback data from Dec 2023. "
+            "HN API may be temporarily unavailable."
+        )
+        logger.warning(
+            "Using fallback mock data for graph - HN API unavailable. "
+            "Response contains stale Dec 2023 fixture data."
+        )
         topics = _mock_topics()
         edges = [
             TopicEdge(
@@ -362,6 +394,7 @@ async def get_pulse_graph(
         ],
         captured_at=datetime.now(timezone.utc),
         data_source=data_source,
+        warning=warning_msg,
     )
 
 
@@ -378,10 +411,13 @@ async def get_pulse_graph(
             "model": ErrorResponse,
             "description": "Validation error - invalid query parameters",
         },
+        429: {"model": ErrorResponse, "description": "Rate limit exceeded"},
         500: {"model": ErrorResponse, "description": "Internal server error"},
     },
 )
+@limiter.limit("20/minute")
 async def get_live_pulse(
+    request: Request,
     num_stories: int = Query(100, le=200, description="HN stories to analyze"),
     limit: int = Query(20, le=100, description="Max topics to return"),
     offset: int = Query(0, ge=0, description="Number of topics to skip"),
@@ -462,10 +498,13 @@ async def get_live_pulse(
             "model": ErrorResponse,
             "description": "Validation error - invalid query parameters",
         },
+        429: {"model": ErrorResponse, "description": "Rate limit exceeded"},
         500: {"model": ErrorResponse, "description": "Internal server error"},
     },
 )
+@limiter.limit("10/minute")
 async def compare_rankings(
+    request: Request,
     num_stories: int = Query(100, le=200, description="HN stories to analyze"),
 ) -> RankComparisonResponse:
     """Compare pulse ranking vs simple mention-count ranking."""

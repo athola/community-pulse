@@ -16,6 +16,7 @@ dependencies = [
     "psycopg2-binary>=2.9.11",
     "httpx>=0.28.1",
     "rustworkx>=0.17.1",
+    "slowapi>=0.1.9",
 ]
 
 [project.optional-dependencies]

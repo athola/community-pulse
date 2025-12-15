@@ -82,6 +82,10 @@ class GraphResponse(BaseModel):
     data_source: str = Field(
         description="Data source: 'live' from HN API or 'mock' fallback"
     )
+    warning: str | None = Field(
+        default=None,
+        description="Warning message when using fallback data",
+    )
 
 
 class PulseResponse(BaseModel):
@@ -98,6 +102,10 @@ class PulseResponse(BaseModel):
     )
     total_count: int = Field(
         description="Total number of topics matching filters (before pagination)"
+    )
+    warning: str | None = Field(
+        default=None,
+        description="Warning message when using fallback data",
     )
 
 

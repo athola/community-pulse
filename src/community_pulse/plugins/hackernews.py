@@ -137,7 +137,7 @@ class HackerNewsPlugin:
             endpoint: API endpoint name (e.g., "topstories", "newstories")
 
         Returns:
-            List of story IDs
+            List of story IDs (empty list if HN API is unavailable)
 
         """
         cache_key = f"story_ids:{endpoint}"
@@ -147,15 +147,31 @@ class HackerNewsPlugin:
         if cached is not None:
             return cast(list[int], cached)
 
-        # Fetch fresh data
-        resp = self.client.get(f"{HN_API_BASE}/{endpoint}.json")
-        resp.raise_for_status()
-        result: list[int] = resp.json()
+        # Fetch fresh data with error handling
+        try:
+            resp = self.client.get(f"{HN_API_BASE}/{endpoint}.json")
+            resp.raise_for_status()
+            result: list[int] = resp.json()
 
-        # Store in cache
-        self._set_cached(cache_key, result)
+            # Store in cache
+            self._set_cached(cache_key, result)
 
-        return result
+            return result
+        except httpx.HTTPStatusError as e:
+            logger.error(
+                f"HN API error fetching {endpoint}: HTTP {e.response.status_code}. "
+                "Service may be temporarily unavailable."
+            )
+            return []
+        except httpx.RequestError as e:
+            logger.error(
+                f"Network error fetching {endpoint} from HN API: {e}. "
+                "Check internet connectivity."
+            )
+            return []
+        except ValueError as e:
+            logger.error(f"Invalid JSON response from HN API for {endpoint}: {e}")
+            return []
 
     def _fetch_item(self, item_id: int) -> dict[str, Any] | None:
         """Fetch a single HN item by ID.
