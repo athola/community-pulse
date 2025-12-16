@@ -24,6 +24,7 @@ build/
 # Testing
 .pytest_cache/
 .coverage
+coverage.xml
 htmlcov/
 .tox/
 .nox/
@@ -53,3 +54,12 @@ npm-debug.log*
 
 # Worktrees
 .worktrees/
+
+# Generated assets
+docs/*.pdf
+
+# Planning docs (ephemeral LLM-generated, not part of project)
+docs/plans/
+
+# Misc
+commit_msg.txt

@@ -12,6 +12,11 @@ dependencies = [
     "uvicorn[standard]>=0.38.0,<1.0",
     "pydantic>=2.12.0,<3.0",
     "python-dotenv>=1.0.0,<2.0",
+    "sqlalchemy>=2.0.45",
+    "psycopg2-binary>=2.9.11",
+    "httpx>=0.28.1",
+    "rustworkx>=0.17.1",
+    "slowapi>=0.1.9",
 ]
 
 [project.optional-dependencies]
@@ -43,7 +48,7 @@ addopts = [
     "--cov-report=term-missing",
     "--cov-report=html:htmlcov",
     "--cov-report=xml",
-    "--cov-fail-under=0",  # TODO: Increase to 85 as codebase grows
+    "--cov-fail-under=85",
 ]
 markers = [
     "unit: Unit tests for individual components",
@@ -109,6 +114,8 @@ check_untyped_defs = false
 disallow_untyped_decorators = false
 warn_return_any = false
 
+# Note: seed_db uses inline type: ignore for dotenv import
+
 [tool.uv]
 default-groups = ["dev"]
 
@@ -120,4 +127,5 @@ default-groups = ["dev"]
     "pytest>=9.0.0,<10.0",
     "pytest-cov>=5.0.0,<6.0",
     "pre-commit>=4.5.0,<5.0",
+    "ty>=0.0.1a33",
 ]
