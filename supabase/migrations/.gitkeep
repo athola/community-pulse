@@ -1,0 +1,2 @@
+# Migration files are created with: supabase migration new <name>
+# Run migrations with: supabase db push

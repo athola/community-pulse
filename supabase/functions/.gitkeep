@@ -1,0 +1,2 @@
+# Edge Functions are created with: supabase functions new <name>
+# Deploy with: supabase functions deploy

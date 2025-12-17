@@ -95,13 +95,41 @@ uv run ruff check src tests
 uv run mypy src tests
 ```
 
+## CI/CD
+
+Automated pipelines handle testing, building, and releasing:
+
+- **On every push**: Lint (Ruff), type-check (mypy), and run tests (pytest)
+- **On push to master**: Automatically create a version tag if `pyproject.toml` version changed
+- **On version tag (v*)**: Build and publish Docker image, Python wheel, and frontend bundle to GitHub Releases
+
+The workflows gracefully skip Supabase deployment steps when secrets are not configured.
+
 ## Deployment
+
+### Docker (Production)
+
+The production Dockerfile uses multi-stage builds with a non-root user and health checks:
+
+```bash
+# Pull from GitHub Container Registry
+docker pull ghcr.io/athola/community-pulse:latest
+
+# Or build locally
+docker build -t community-pulse .
+docker run -p 8000:8000 community-pulse
+
+# Health check endpoint
+curl http://localhost:8000/health
+```
 
 ### Supabase (Database)
 
-1. Create a free Supabase project
-2. Copy the connection string from Project Settings > Database
-3. Set `DATABASE_URL` in your deployment environment
+See [docs/SUPABASE_SETUP.md](docs/SUPABASE_SETUP.md) for complete setup instructions covering:
+- Project creation and configuration
+- GitHub Actions secrets setup
+- Local development with Supabase CLI
+- Database migrations
 
 ### Render (API + Frontend)
 
@@ -143,7 +171,8 @@ frontend/
 - **Graph Analysis**: rustworkx (Rust-powered NetworkX alternative)
 - **Frontend**: React Native Web, Expo Router, TanStack Query, react-force-graph-2d
 - **Database**: PostgreSQL via Supabase (includes pg_graphql)
-- **Deployment**: Render (API + static), Docker Compose (local)
+- **CI/CD**: GitHub Actions (lint, test, build, release), Docker multi-stage builds
+- **Deployment**: GitHub Container Registry (Docker), Render (API + static), Supabase (database + functions)
 
 ## License
 
