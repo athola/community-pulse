@@ -126,7 +126,7 @@ class TestPulseComputeEdgeCases:
                 title=f"{topics[i % len(topics)]} post number {i}",
                 content=(
                     f"Content about {topics[i % len(topics)]} and "
-                    f"{topics[(i+1) % len(topics)]}"
+                    f"{topics[(i + 1) % len(topics)]}"
                 ),
                 author=f"author_{i % 50}",  # 50 unique authors
                 url=f"https://example.com/{i}",
