@@ -148,15 +148,16 @@ jobs:
         env:
           VERSION: ${{ steps.version.outputs.version }}
         run: |
+          set -e
           mkdir -p release-assets
-          # Move wheel
-          mv artifacts/wheel/*.whl "release-assets/community_pulse-${VERSION}-py3-none-any.whl" 2>/dev/null || \
-            cp artifacts/wheel/*.whl release-assets/
-          # Move sdist
-          mv artifacts/sdist/*.tar.gz "release-assets/community_pulse-${VERSION}.tar.gz" 2>/dev/null || \
-            cp artifacts/sdist/*.tar.gz release-assets/
-          # Move frontend
-          mv artifacts/frontend/frontend-dist.tar.gz "release-assets/frontend-${VERSION}.tar.gz"
+          # Rename wheel to versioned name
+          wheel_file=$(ls artifacts/wheel/*.whl)
+          cp "$wheel_file" "release-assets/community_pulse-${VERSION}-py3-none-any.whl"
+          # Rename sdist to versioned name
+          sdist_file=$(ls artifacts/sdist/*.tar.gz)
+          cp "$sdist_file" "release-assets/community_pulse-${VERSION}.tar.gz"
+          # Rename frontend archive
+          cp artifacts/frontend/frontend-dist.tar.gz "release-assets/frontend-${VERSION}.tar.gz"
           ls -la release-assets/
 
       - name: Create GitHub Release

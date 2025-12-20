@@ -7,7 +7,6 @@ on:
 env:
   SUPABASE_ACCESS_TOKEN: ${{ secrets.SUPABASE_ACCESS_TOKEN }}
   SUPABASE_PROJECT_REF: ${{ secrets.SUPABASE_PROJECT_REF }}
-  SUPABASE_DB_PASSWORD: ${{ secrets.SUPABASE_DB_PASSWORD }}
 
 jobs:
   deploy-backend:
@@ -40,11 +39,14 @@ jobs:
         if: steps.check-config.outputs.configured == 'true'
         id: check-migrations
         run: |
-          if ls supabase/migrations/*.sql 1>/dev/null 2>&1; then
+          if [ ! -d "supabase/migrations" ]; then
+            echo "has_migrations=false" >> $GITHUB_OUTPUT
+            echo "::notice::supabase/migrations directory does not exist, skipping migrations"
+          elif ls supabase/migrations/*.sql 1>/dev/null 2>&1; then
             echo "has_migrations=true" >> $GITHUB_OUTPUT
           else
             echo "has_migrations=false" >> $GITHUB_OUTPUT
-            echo "No migrations found in supabase/migrations/"
+            echo "::notice::No .sql files in supabase/migrations/, skipping migrations"
           fi
 
       - name: Deploy database migrations
@@ -64,7 +66,7 @@ jobs:
 
       - name: Deploy Edge Functions
         if: steps.check-config.outputs.configured == 'true' && steps.check-functions.outputs.has_functions == 'true'
-        run: supabase functions deploy --no-verify-jwt
+        run: supabase functions deploy
 
   deploy-frontend:
     name: Deploy Frontend (Static Hosting)
@@ -117,15 +119,22 @@ jobs:
         if: steps.check-config.outputs.configured == 'true'
         working-directory: .
         run: |
+          set -e
           supabase link --project-ref "$SUPABASE_PROJECT_REF"
-          # Upload static files to Supabase Storage bucket
-          for file in frontend/dist/*; do
-            if [ -f "$file" ]; then
-              supabase storage cp "$file" "ss:///website/$(basename "$file")"
-            fi
-          done
-          # Upload subdirectories recursively
-          find frontend/dist -type f | while read -r file; do
+          # Upload all static files recursively with error checking
+          upload_count=0
+          fail_count=0
+          while IFS= read -r file; do
             rel_path="${file#frontend/dist/}"
-            supabase storage cp "$file" "ss:///website/$rel_path"
-          done
+            if supabase storage cp "$file" "ss:///website/$rel_path"; then
+              upload_count=$((upload_count + 1))
+            else
+              echo "::error::Failed to upload: $rel_path"
+              fail_count=$((fail_count + 1))
+            fi
+          done < <(find frontend/dist -type f)
+          echo "Uploaded $upload_count files"
+          if [ "$fail_count" -gt 0 ]; then
+            echo "::error::$fail_count files failed to upload"
+            exit 1
+          fi

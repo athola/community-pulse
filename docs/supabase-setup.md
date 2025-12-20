@@ -47,7 +47,7 @@ This guide walks through the manual steps required to configure Supabase for Com
 
 ### Step 2.1: Add Repository Secrets
 
-1. Go to GitHub → `athola/community-pulse` → **Settings** → **Secrets and variables** → **Actions**
+1. Go to your GitHub repository → **Settings** → **Secrets and variables** → **Actions**
 2. Click **New repository secret** for each:
 
 | Secret Name | Value | Description |
