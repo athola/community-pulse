@@ -17,6 +17,7 @@ dependencies = [
     "httpx>=0.28.1",
     "rustworkx>=0.17.1",
     "slowapi>=0.1.9",
+    "pydantic-settings>=2.12.0",
 ]
 
 [project.optional-dependencies]
@@ -70,6 +71,7 @@ extend-ignore = ["E203", "D203", "D213"]
 [tool.ruff.lint.per-file-ignores]
 "**/__init__.py" = ["F401"]
 "tests/**/*.py" = [
+    "PLC0415",
     "PLR2004",
     "PLR0913",
     "PT009",

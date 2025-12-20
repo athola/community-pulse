@@ -9,6 +9,7 @@ from fastapi import APIRouter, Query, Request
 from slowapi import Limiter
 from slowapi.util import get_remote_address
 
+from community_pulse.config import get_pulse_settings
 from community_pulse.models.pulse import (
     ClusterInfo,
     ErrorResponse,
@@ -28,12 +29,8 @@ logger = logging.getLogger(__name__)
 # Rate limiter for this module
 limiter = Limiter(key_func=get_remote_address)
 
-# Thresholds for significant metrics (could be moved to config later)
-SIGNIFICANT_RANK_DIFF = 2  # Topics with >=2 rank difference
-HIGH_VELOCITY_THRESHOLD = 1.5  # Topics with 50%+ momentum increase
-HIGH_CENTRALITY_THRESHOLD = 0.3  # Topics with network importance >= 30%
-DIVERSE_AUTHORS_THRESHOLD = 5  # Topics with 5+ unique authors
-MIN_CLUSTER_SIZE = 3  # Minimum topics to form a cluster
+# Get threshold settings from config (can be overridden via environment variables)
+_settings = get_pulse_settings()
 
 router = APIRouter(prefix="/pulse", tags=["pulse"])
 
@@ -384,14 +381,16 @@ async def get_pulse_graph(
         clusters=[
             ClusterInfo(
                 id=str(uuid4()),
-                topic_ids=[t.id for t in topics[:MIN_CLUSTER_SIZE]]
-                if len(topics) >= MIN_CLUSTER_SIZE
+                topic_ids=[t.id for t in topics[: _settings.min_cluster_size]]
+                if len(topics) >= _settings.min_cluster_size
                 else [],
-                collective_velocity=sum(t.velocity for t in topics[:MIN_CLUSTER_SIZE])
-                / MIN_CLUSTER_SIZE
-                if len(topics) >= MIN_CLUSTER_SIZE
+                collective_velocity=sum(
+                    t.velocity for t in topics[: _settings.min_cluster_size]
+                )
+                / _settings.min_cluster_size
+                if len(topics) >= _settings.min_cluster_size
                 else 0,
-                size=min(MIN_CLUSTER_SIZE, len(topics)),
+                size=min(_settings.min_cluster_size, len(topics)),
             )
         ],
         captured_at=datetime.now(timezone.utc),
@@ -472,7 +471,9 @@ async def get_live_pulse(
         )
 
     # Generate hypothesis evidence
-    significant_diffs = [d for d in rank_diffs if abs(d[1]) >= SIGNIFICANT_RANK_DIFF]
+    significant_diffs = [
+        d for d in rank_diffs if abs(d[1]) >= _settings.significant_rank_diff
+    ]
     if significant_diffs:
         boosted = [f"{s} (+{d})" for s, d in significant_diffs if d > 0]
         demoted = [f"{s} ({d})" for s, d in significant_diffs if d < 0]
@@ -534,13 +535,13 @@ async def compare_rankings(
     differences = []
     for t in computed:
         diff = t.mention_rank - t.pulse_rank
-        if abs(diff) >= SIGNIFICANT_RANK_DIFF:
+        if abs(diff) >= _settings.significant_rank_diff:
             reason = []
-            if t.velocity > HIGH_VELOCITY_THRESHOLD:
+            if t.velocity > _settings.high_velocity_threshold:
                 reason.append(f"high velocity ({t.velocity:.1f}x)")
-            if t.centrality > HIGH_CENTRALITY_THRESHOLD:
+            if t.centrality > _settings.high_centrality_threshold:
                 reason.append(f"high centrality ({t.centrality:.2f})")
-            if t.unique_authors > DIVERSE_AUTHORS_THRESHOLD:
+            if t.unique_authors > _settings.diverse_authors_threshold:
                 reason.append(f"diverse authors ({t.unique_authors})")
 
             differences.append(
