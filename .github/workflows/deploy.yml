@@ -126,7 +126,7 @@ jobs:
           fail_count=0
           while IFS= read -r file; do
             rel_path="${file#frontend/dist/}"
-            if supabase storage cp "$file" "ss:///website/$rel_path"; then
+            if supabase storage cp --experimental "$file" "ss:///website/$rel_path"; then
               upload_count=$((upload_count + 1))
             else
               echo "::error::Failed to upload: $rel_path"
