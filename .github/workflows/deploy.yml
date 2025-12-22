@@ -121,6 +121,9 @@ jobs:
         run: |
           set -e
           supabase link --project-ref "$SUPABASE_PROJECT_REF"
+
+          # Ensure the website bucket exists (create if missing, ignore if exists)
+          supabase storage create website --public 2>/dev/null || echo "Bucket 'website' already exists or creation skipped"
           # Upload all static files recursively with error checking
           upload_count=0
           fail_count=0
