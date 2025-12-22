@@ -7,6 +7,7 @@ code changes, following 12-factor app principles.
 
 from functools import lru_cache
 
+from pydantic import Field
 from pydantic_settings import BaseSettings, SettingsConfigDict
 
 
@@ -30,11 +31,11 @@ class PulseThresholdSettings(BaseSettings):
         case_sensitive=False,
     )
 
-    significant_rank_diff: int = 2
-    high_velocity_threshold: float = 1.5
-    high_centrality_threshold: float = 0.3
-    diverse_authors_threshold: int = 5
-    min_cluster_size: int = 3
+    significant_rank_diff: int = Field(default=2, ge=1)
+    high_velocity_threshold: float = Field(default=1.5, gt=0.0)
+    high_centrality_threshold: float = Field(default=0.3, ge=0.0, le=1.0)
+    diverse_authors_threshold: int = Field(default=5, ge=1)
+    min_cluster_size: int = Field(default=3, ge=1)
 
 
 @lru_cache
@@ -50,3 +51,13 @@ def get_pulse_settings() -> PulseThresholdSettings:
 
     """
     return PulseThresholdSettings()
+
+
+def clear_pulse_settings_cache() -> None:
+    """Clear the cached pulse settings.
+
+    Useful for testing or when environment variables change at runtime.
+    After calling this, the next get_pulse_settings() call will re-read
+    environment variables.
+    """
+    get_pulse_settings.cache_clear()

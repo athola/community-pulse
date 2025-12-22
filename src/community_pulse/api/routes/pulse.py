@@ -29,9 +29,6 @@ logger = logging.getLogger(__name__)
 # Rate limiter for this module
 limiter = Limiter(key_func=get_remote_address)
 
-# Get threshold settings from config (can be overridden via environment variables)
-_settings = get_pulse_settings()
-
 router = APIRouter(prefix="/pulse", tags=["pulse"])
 
 # Real HN story IDs for engagement - these link to actual discussions
@@ -375,22 +372,24 @@ async def get_pulse_graph(
     # Filter by edge weight
     filtered_edges = [e for e in edges if e.weight >= min_edge_weight]
 
+    # Get settings at request time for proper error handling
+    settings = get_pulse_settings()
+    min_size = settings.min_cluster_size
+
     return GraphResponse(
         nodes=topics,
         edges=filtered_edges[:15],  # Limit edges for cleaner visualization
         clusters=[
             ClusterInfo(
                 id=str(uuid4()),
-                topic_ids=[t.id for t in topics[: _settings.min_cluster_size]]
-                if len(topics) >= _settings.min_cluster_size
+                topic_ids=[t.id for t in topics[:min_size]]
+                if len(topics) >= min_size
                 else [],
-                collective_velocity=sum(
-                    t.velocity for t in topics[: _settings.min_cluster_size]
-                )
-                / _settings.min_cluster_size
-                if len(topics) >= _settings.min_cluster_size
+                collective_velocity=sum(t.velocity for t in topics[:min_size])
+                / min_size
+                if len(topics) >= min_size
                 else 0,
-                size=min(_settings.min_cluster_size, len(topics)),
+                size=min(min_size, len(topics)),
             )
         ],
         captured_at=datetime.now(timezone.utc),
@@ -471,8 +470,9 @@ async def get_live_pulse(
         )
 
     # Generate hypothesis evidence
+    settings = get_pulse_settings()
     significant_diffs = [
-        d for d in rank_diffs if abs(d[1]) >= _settings.significant_rank_diff
+        d for d in rank_diffs if abs(d[1]) >= settings.significant_rank_diff
     ]
     if significant_diffs:
         boosted = [f"{s} (+{d})" for s, d in significant_diffs if d > 0]
@@ -532,16 +532,17 @@ async def compare_rankings(
     ]
 
     # Find significant differences
+    settings = get_pulse_settings()
     differences = []
     for t in computed:
         diff = t.mention_rank - t.pulse_rank
-        if abs(diff) >= _settings.significant_rank_diff:
+        if abs(diff) >= settings.significant_rank_diff:
             reason = []
-            if t.velocity > _settings.high_velocity_threshold:
+            if t.velocity > settings.high_velocity_threshold:
                 reason.append(f"high velocity ({t.velocity:.1f}x)")
-            if t.centrality > _settings.high_centrality_threshold:
+            if t.centrality > settings.high_centrality_threshold:
                 reason.append(f"high centrality ({t.centrality:.2f})")
-            if t.unique_authors > _settings.diverse_authors_threshold:
+            if t.unique_authors > settings.diverse_authors_threshold:
                 reason.append(f"diverse authors ({t.unique_authors})")
 
             differences.append(

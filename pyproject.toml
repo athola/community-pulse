@@ -71,9 +71,7 @@ extend-ignore = ["E203", "D203", "D213"]
 [tool.ruff.lint.per-file-ignores]
 "**/__init__.py" = ["F401"]
 "tests/**/*.py" = [
-    "PLC0415",
     "PLR2004",
-    "PLR0913",
     "PT009",
     "PT011",
     "RUF001",
