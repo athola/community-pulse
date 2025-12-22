@@ -168,7 +168,7 @@ jobs:
           # Check if bucket exists (returns 0=exists, 1=not found, 2=error)
           bucket_exists() {
             local ls_output
-            if ! ls_output=$(supabase storage ls 2>&1); then
+            if ! ls_output=$(supabase storage ls --experimental 2>&1); then
               echo "::error::Failed to list storage buckets: $ls_output"
               return 2
             fi
@@ -199,7 +199,7 @@ jobs:
           # Check if bucket exists (returns 0=exists, 1=not found, 2=error)
           bucket_exists() {
             local ls_output
-            if ! ls_output=$(supabase storage ls 2>&1); then
+            if ! ls_output=$(supabase storage ls --experimental 2>&1); then
               return 2
             fi
             echo "$ls_output" | grep -q "^website$"
