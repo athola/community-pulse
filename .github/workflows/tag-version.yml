@@ -20,8 +20,22 @@ jobs:
       - name: Extract and validate version
         id: version
         run: |
+          # Check pyproject.toml exists
+          if [ ! -f "pyproject.toml" ]; then
+            echo "::error::pyproject.toml not found in repository root"
+            exit 1
+          fi
+
           # Extract version from pyproject.toml
           RAW_VERSION=$(grep -Po '(?<=^version = ")[^"]*' pyproject.toml || echo "")
+
+          # Check if version was extracted
+          if [ -z "$RAW_VERSION" ]; then
+            echo "::error::Could not extract version from pyproject.toml. Expected format: version = \"X.Y.Z\""
+            echo "::notice::Found version-related lines:"
+            grep -n "version" pyproject.toml || echo "  (no lines containing 'version' found)"
+            exit 1
+          fi
 
           # Validate semver format (major.minor.patch with optional pre-release)
           if echo "$RAW_VERSION" | grep -Eq '^[0-9]+\.[0-9]+\.[0-9]+(-[a-zA-Z0-9.]+)?$'; then
@@ -30,7 +44,7 @@ jobs:
             echo "Validated version: $RAW_VERSION"
           else
             echo "valid=false" >> $GITHUB_OUTPUT
-            echo "::error::Invalid version format in pyproject.toml: $RAW_VERSION"
+            echo "::error::Invalid semver format: '$RAW_VERSION'. Expected: X.Y.Z or X.Y.Z-prerelease"
             exit 1
           fi
 
