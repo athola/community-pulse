@@ -53,16 +53,9 @@ jobs:
         uses: lewagon/wait-on-check-action@v1.3.4
         with:
           ref: ${{ github.sha }}
-          check-name: 'Lint (Ruff)'
-          repo-token: ${{ secrets.GITHUB_TOKEN }}
-          wait-interval: 10
-
-      - name: Wait for tests to pass
-        if: steps.check-tag.outputs.exists == 'false'
-        uses: lewagon/wait-on-check-action@v1.3.4
-        with:
-          ref: ${{ github.sha }}
-          check-name: 'Tests (pytest)'
+          # Use regex pattern to match check names dynamically
+          # This is resilient to name changes like "Lint (Ruff)" → "Lint (Ruff v2)"
+          check-regexp: '^(Lint|Tests|Type Check).*'
           repo-token: ${{ secrets.GITHUB_TOKEN }}
           wait-interval: 10
 
