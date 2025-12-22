@@ -165,28 +165,30 @@ jobs:
             exit 1
           fi
 
-          # Check if bucket exists (returns 0=exists, 1=not found, 2=error)
-          bucket_exists() {
-            local ls_output
-            if ! ls_output=$(supabase storage ls --experimental 2>&1); then
-              echo "::error::Failed to list storage buckets: $ls_output"
-              return 2
-            fi
-            echo "$ls_output" | grep -q "^website$"
-          }
+          # Check if bucket exists - disable errexit to handle errors manually
+          echo "Checking storage bucket access..."
+          set +e
+          ls_output=$(supabase storage ls --experimental 2>&1)
+          ls_status=$?
+          set -e
 
-          bucket_exists
-          bucket_status=$?
-          if [ "$bucket_status" -eq 2 ]; then
+          echo "Storage ls exit code: $ls_status"
+          echo "Storage ls output: $ls_output"
+
+          if [ "$ls_status" -ne 0 ]; then
+            echo "::error::Failed to list storage buckets (exit code $ls_status): $ls_output"
             echo "::notice::Common causes:"
             echo "  - SUPABASE_ACCESS_TOKEN expired or invalid"
             echo "  - Token lacks storage permissions"
             echo "  - Supabase service unavailable"
             exit 1
-          elif [ "$bucket_status" -eq 0 ]; then
+          fi
+
+          if echo "$ls_output" | grep -q "^website$"; then
             echo "Storage bucket 'website' exists and is accessible"
           else
             echo "::warning::Storage bucket 'website' does not exist"
+            echo "Available buckets: $ls_output"
             echo "The bucket will be created during actual deployment"
             echo "Storage access verified - bucket creation should succeed"
           fi
@@ -196,18 +198,22 @@ jobs:
         working-directory: .
         run: |
           # Test upload with a small file to verify credentials work
-          # Check if bucket exists (returns 0=exists, 1=not found, 2=error)
-          bucket_exists() {
-            local ls_output
-            if ! ls_output=$(supabase storage ls --experimental 2>&1); then
-              return 2
-            fi
-            echo "$ls_output" | grep -q "^website$"
-          }
+          # Check if bucket exists - disable errexit to handle errors manually
+          set +e
+          ls_output=$(supabase storage ls --experimental 2>&1)
+          ls_status=$?
+          set -e
 
-          bucket_exists
-          bucket_status=$?
-          if [ "$bucket_status" -eq 0 ]; then
+          bucket_exists=false
+          bucket_error=false
+
+          if [ "$ls_status" -ne 0 ]; then
+            bucket_error=true
+          elif echo "$ls_output" | grep -q "^website$"; then
+            bucket_exists=true
+          fi
+
+          if [ "$bucket_exists" = "true" ]; then
             echo "Testing upload capability..."
             echo "dry-run-test-$(date +%s)" > /tmp/dry-run-test.txt
             test_path=".dry-run-test/validate-$(date +%s).txt"
@@ -224,8 +230,9 @@ jobs:
               echo "  - Token lacks storage write permissions"
               exit 1
             fi
-          elif [ "$bucket_status" -eq 2 ]; then
+          elif [ "$bucket_error" = "true" ]; then
             echo "::error::Cannot verify upload capability - storage API error"
+            echo "Storage ls output: $ls_output"
             exit 1
           else
             echo "Skipping upload test - bucket doesn't exist yet"
