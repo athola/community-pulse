@@ -62,7 +62,20 @@ jobs:
 
       - name: Deploy database migrations
         if: steps.check-config.outputs.configured == 'true' && steps.check-migrations.outputs.has_migrations == 'true'
-        run: supabase db push
+        run: |
+          echo "Pushing database migrations..."
+          if ! output=$(supabase db push 2>&1); then
+            echo "$output"
+            echo "::error::Database migration failed"
+            echo "::notice::Common causes:"
+            echo "  - SQL syntax error in migration file"
+            echo "  - Constraint violation (foreign key, unique)"
+            echo "  - Migration already applied with different content"
+            echo "  - Network connectivity issues with Supabase"
+            exit 1
+          fi
+          echo "$output"
+          echo "✓ Database migrations applied successfully"
 
       - name: Check for Edge Functions
         if: steps.check-config.outputs.configured == 'true'
@@ -163,17 +176,85 @@ jobs:
             exit 1
           fi
 
-          # Ensure the website bucket exists (create if missing, ignore if exists)
-          supabase storage create website --public 2>/dev/null || echo "Bucket 'website' already exists or creation skipped"
+          # Check if bucket exists - disable errexit to handle errors manually
+          echo "Checking storage bucket access..."
+          set +e
+          ls_output=$(supabase storage ls --experimental 2>&1)
+          ls_status=$?
+          set -e
+
+          echo "Storage ls exit code: $ls_status"
+          echo "Storage ls output: $ls_output"
+
+          if [ "$ls_status" -ne 0 ]; then
+            echo "::error::Failed to list storage buckets (exit code $ls_status): $ls_output"
+            echo "::notice::Common causes for storage list failure:"
+            echo "  - SUPABASE_ACCESS_TOKEN expired or invalid"
+            echo "  - Insufficient permissions on token"
+            echo "  - Supabase service unavailable"
+            exit 1
+          fi
+
+          # Create bucket if it doesn't exist
+          if echo "$ls_output" | grep -q "^website$"; then
+            echo "Bucket 'website' already exists"
+          else
+            echo "Creating bucket 'website'..."
+            if ! supabase storage create website --public; then
+              echo "::error::Failed to create storage bucket 'website'"
+              echo "::notice::Common causes:"
+              echo "  - Insufficient permissions on SUPABASE_ACCESS_TOKEN"
+              echo "  - Storage quota exceeded"
+              echo "  - Project paused or unavailable"
+              exit 1
+            fi
+            echo "Bucket created, waiting for propagation..."
+            # Wait for bucket to be available (max 30 seconds)
+            for i in {1..6}; do
+              sleep 5
+              bucket_exists
+              check_status=$?
+              if [ "$check_status" -eq 0 ]; then
+                echo "Bucket is now available"
+                break
+              elif [ "$check_status" -eq 2 ]; then
+                echo "::error::Storage API error while waiting for bucket"
+                exit 1
+              fi
+              if [ "$i" -eq 6 ]; then
+                echo "::error::Bucket 'website' not available after 30 seconds"
+                exit 1
+              fi
+              echo "Waiting for bucket... (attempt $i/6)"
+            done
+          fi
+
+          # Upload function with retry logic
+          upload_file() {
+            local file="$1"
+            local rel_path="$2"
+            local max_attempts=3
+            for attempt in $(seq 1 $max_attempts); do
+              if supabase storage cp --experimental "$file" "ss:///website/$rel_path" 2>&1; then
+                return 0
+              fi
+              if [ "$attempt" -lt "$max_attempts" ]; then
+                echo "Retry $attempt/$max_attempts for $rel_path..."
+                sleep $((attempt * 2))
+              fi
+            done
+            return 1
+          }
+
           # Upload all static files recursively with error checking
           upload_count=0
           fail_count=0
           while IFS= read -r file; do
             rel_path="${file#frontend/dist/}"
-            if supabase storage cp --experimental "$file" "ss:///website/$rel_path"; then
+            if upload_file "$file" "$rel_path"; then
               upload_count=$((upload_count + 1))
             else
-              echo "::error::Failed to upload: $rel_path"
+              echo "::error::Failed to upload after retries: $rel_path"
               fail_count=$((fail_count + 1))
             fi
           done < <(find frontend/dist -type f)
