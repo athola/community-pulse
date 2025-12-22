@@ -33,7 +33,18 @@ jobs:
 
       - name: Link Supabase project
         if: steps.check-config.outputs.configured == 'true'
-        run: supabase link --project-ref "$SUPABASE_PROJECT_REF"
+        run: |
+          set -e
+          echo "Linking to project: $SUPABASE_PROJECT_REF"
+          if ! output=$(supabase link --project-ref "$SUPABASE_PROJECT_REF" 2>&1); then
+            echo "$output"
+            echo "::error::Failed to link Supabase project"
+            echo "::notice::Common causes:"
+            echo "  - SUPABASE_ACCESS_TOKEN expired (regenerate at supabase.com/dashboard/account/tokens)"
+            echo "  - SUPABASE_PROJECT_REF incorrect (check Settings > General in Supabase dashboard)"
+            echo "  - Network connectivity issues"
+            exit 1
+          fi
 
       - name: Check for migrations
         if: steps.check-config.outputs.configured == 'true'
@@ -66,7 +77,29 @@ jobs:
 
       - name: Deploy Edge Functions
         if: steps.check-config.outputs.configured == 'true' && steps.check-functions.outputs.has_functions == 'true'
-        run: supabase functions deploy
+        run: |
+          echo "Deploying Edge Functions..."
+          shopt -s nullglob
+          for func_dir in supabase/functions/*/; do
+            func_name=$(basename "$func_dir")
+            # Skip _shared directory - contains shared code imported by functions, not a deployable function itself
+            if [ "$func_name" = "_shared" ]; then
+              continue
+            fi
+            echo "::group::Deploying $func_name"
+            if supabase functions deploy "$func_name" 2>&1; then
+              echo "✓ $func_name deployed successfully"
+            else
+              echo "::error::Failed to deploy function: $func_name"
+              echo "::notice::Common causes:"
+              echo "  - TypeScript compilation errors in supabase/functions/$func_name/"
+              echo "  - Invalid imports (check Deno compatibility)"
+              echo "  - Function exceeds size limit"
+              echo "::endgroup::"
+              exit 1
+            fi
+            echo "::endgroup::"
+          done
 
   deploy-frontend:
     name: Deploy Frontend (Static Hosting)
@@ -120,7 +153,18 @@ jobs:
         working-directory: .
         run: |
           set -e
-          supabase link --project-ref "$SUPABASE_PROJECT_REF"
+          echo "Linking to project: $SUPABASE_PROJECT_REF"
+          if ! supabase link --project-ref "$SUPABASE_PROJECT_REF" 2>&1; then
+            echo "::error::Failed to link Supabase project"
+            echo "::notice::Common causes:"
+            echo "  - SUPABASE_ACCESS_TOKEN expired (regenerate at supabase.com/dashboard/account/tokens)"
+            echo "  - SUPABASE_PROJECT_REF incorrect (check Settings > General in Supabase dashboard)"
+            echo "  - Network connectivity issues"
+            exit 1
+          fi
+
+          # Ensure the website bucket exists (create if missing, ignore if exists)
+          supabase storage create website --public 2>/dev/null || echo "Bucket 'website' already exists or creation skipped"
           # Upload all static files recursively with error checking
           upload_count=0
           fail_count=0
