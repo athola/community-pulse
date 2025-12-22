@@ -34,8 +34,10 @@ jobs:
       - name: Link Supabase project
         if: steps.check-config.outputs.configured == 'true'
         run: |
+          set -e
           echo "Linking to project: $SUPABASE_PROJECT_REF"
-          if ! supabase link --project-ref "$SUPABASE_PROJECT_REF" 2>&1; then
+          if ! output=$(supabase link --project-ref "$SUPABASE_PROJECT_REF" 2>&1); then
+            echo "$output"
             echo "::error::Failed to link Supabase project"
             echo "::notice::Common causes:"
             echo "  - SUPABASE_ACCESS_TOKEN expired (regenerate at supabase.com/dashboard/account/tokens)"
@@ -77,9 +79,10 @@ jobs:
         if: steps.check-config.outputs.configured == 'true' && steps.check-functions.outputs.has_functions == 'true'
         run: |
           echo "Deploying Edge Functions..."
+          shopt -s nullglob
           for func_dir in supabase/functions/*/; do
             func_name=$(basename "$func_dir")
-            # Skip shared directory (not a function)
+            # Skip _shared directory - contains shared code imported by functions, not a deployable function itself
             if [ "$func_name" = "_shared" ]; then
               continue
             fi

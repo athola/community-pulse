@@ -67,8 +67,9 @@ jobs:
         uses: lewagon/wait-on-check-action@v1.3.4
         with:
           ref: ${{ github.sha }}
-          # Use regex pattern to match check names dynamically
-          # This is resilient to name changes like "Lint (Ruff)" → "Lint (Ruff v2)"
+          # Regex pattern to match backend CI check names from backend-ci.yml:
+          # - "Lint (Ruff)", "Tests (pytest)", "Type Check (mypy)"
+          # Note: Frontend checks (TypeScript Check, Build Web App) are not gated here
           check-regexp: '^(Lint|Tests|Type Check).*'
           repo-token: ${{ secrets.GITHUB_TOKEN }}
           wait-interval: 10
