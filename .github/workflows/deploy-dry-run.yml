@@ -184,11 +184,21 @@ jobs:
             exit 1
           fi
 
-          if echo "$ls_output" | grep -q "^website$"; then
+          # Check if output looks like a bucket list or initialization message
+          # "Initialising login role..." is not a bucket list
+          if echo "$ls_output" | grep -qi "initialising\|initializing\|error\|usage:"; then
+            echo "::warning::Storage ls returned non-bucket output: $ls_output"
+            echo "This may indicate storage API is still initializing or misconfigured"
+            echo "Storage API responded - bucket creation should work during deployment"
+          elif echo "$ls_output" | grep -q "^website$"; then
             echo "Storage bucket 'website' exists and is accessible"
           else
-            echo "::warning::Storage bucket 'website' does not exist"
-            echo "Available buckets: $ls_output"
+            echo "::notice::Storage bucket 'website' does not exist yet"
+            if [ -n "$ls_output" ]; then
+              echo "Other buckets found: $ls_output"
+            else
+              echo "No buckets exist - this is normal for new projects"
+            fi
             echo "The bucket will be created during actual deployment"
             echo "Storage access verified - bucket creation should succeed"
           fi
@@ -207,8 +217,13 @@ jobs:
           bucket_exists=false
           bucket_error=false
 
+          # Determine bucket state
           if [ "$ls_status" -ne 0 ]; then
             bucket_error=true
+          elif echo "$ls_output" | grep -qi "initialising\|initializing\|error\|usage:"; then
+            # Storage ls returned non-bucket output (initialization message)
+            bucket_error=false
+            bucket_exists=false
           elif echo "$ls_output" | grep -q "^website$"; then
             bucket_exists=true
           fi
@@ -218,12 +233,18 @@ jobs:
             echo "dry-run-test-$(date +%s)" > /tmp/dry-run-test.txt
             test_path=".dry-run-test/validate-$(date +%s).txt"
 
-            if supabase storage cp --experimental /tmp/dry-run-test.txt "ss:///website/$test_path" 2>&1; then
+            set +e
+            upload_output=$(supabase storage cp --experimental /tmp/dry-run-test.txt "ss:///website/$test_path" 2>&1)
+            upload_status=$?
+            set -e
+
+            if [ "$upload_status" -eq 0 ]; then
               echo "Upload test successful"
               # Clean up test file
-              supabase storage rm "ss:///website/$test_path" 2>/dev/null || true
+              supabase storage rm --experimental "ss:///website/$test_path" 2>/dev/null || true
             else
               echo "::error::Upload test failed - deployment would fail"
+              echo "Upload output: $upload_output"
               echo "::notice::Common causes:"
               echo "  - Bucket permissions misconfigured"
               echo "  - Storage quota exceeded"

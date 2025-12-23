@@ -1,8 +1,8 @@
 # Community Pulse
 
 [![Python 3.12+](https://img.shields.io/badge/python-3.12+-blue.svg)](https://www.python.org/downloads/)
-[![Tests](https://img.shields.io/badge/tests-58%20passed-brightgreen.svg)](tests/)
-[![Coverage](https://img.shields.io/badge/coverage-95%25-brightgreen.svg)](htmlcov/)
+[![Tests](https://img.shields.io/badge/tests-198%20passed-brightgreen.svg)](tests/)
+[![Coverage](https://img.shields.io/badge/coverage-91%25-brightgreen.svg)](htmlcov/)
 [![License: MIT](https://img.shields.io/badge/license-MIT-blue.svg)](LICENSE)
 
 Identifies trending topics using velocity and co-occurrence graph analysis.
@@ -81,17 +81,57 @@ npm start
 
 ## Development
 
+Use `make help` to see all available targets. Common workflows:
+
 ```bash
-# Run tests
+# Full quality check (lint + typecheck + test)
+make check
+
+# Quick iteration (lint only)
+make quick-check
+
+# Run tests by category
+make unit-test         # Fast unit tests only
+make integration-test  # Integration tests only
+make test              # All tests with coverage
+
+# View coverage report
+make coverage
+
+# Format and lint
+make format
+make lint
+make typecheck
+```
+
+### Data Pipeline
+
+```bash
+# Fetch latest data from Hacker News
+make fetch-data
+
+# Seed the database (starts db container if needed)
+make seed
+```
+
+### Docker
+
+```bash
+# Build and run in Docker
+make docker-build
+make docker-run
+
+# Or use Docker Compose for full stack
+make demo
+```
+
+### Direct Commands
+
+If you prefer running tools directly:
+
+```bash
 uv run pytest
-
-# Run with coverage
-uv run pytest --cov
-
-# Lint
 uv run ruff check src tests
-
-# Type check
 uv run mypy src tests
 ```
 
@@ -102,6 +142,12 @@ Automated pipelines handle testing, building, and releasing:
 - **On every push**: Lint (Ruff), type-check (mypy), and run tests (pytest)
 - **On push to master**: Automatically create a version tag if `pyproject.toml` version changed
 - **On version tag (v*)**: Build and publish Docker image, Python wheel, and frontend bundle to GitHub Releases
+
+Run the CI pipeline locally before pushing:
+
+```bash
+make ci  # Format check + lint + typecheck + test
+```
 
 The workflows gracefully skip Supabase deployment steps when secrets are not configured.
 
@@ -125,7 +171,7 @@ curl http://localhost:8000/health
 
 ### Supabase (Database)
 
-See [docs/SUPABASE_SETUP.md](docs/SUPABASE_SETUP.md) for complete setup instructions covering:
+See [docs/supabase-setup.md](docs/supabase-setup.md) for complete setup instructions covering:
 - Project creation and configuration
 - GitHub Actions secrets setup
 - Local development with Supabase CLI

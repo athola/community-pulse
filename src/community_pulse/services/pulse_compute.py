@@ -52,6 +52,14 @@ class ComputedTopic:
     temporal_velocity: float | None = None
 
 
+@dataclass
+class PulseResult:
+    """Result of pulse computation including topics and co-occurrence edges."""
+
+    topics: list[ComputedTopic]
+    edges: list[TopicGraphData]  # True co-occurrence data from shared posts
+
+
 class PulseComputeService:
     """Service to compute pulse scores from any community data source."""
 
@@ -136,11 +144,14 @@ class PulseComputeService:
 
         return by_pulse
 
-    def compute_pulse(self, save_snapshot: bool = True) -> list[ComputedTopic]:
+    def compute_pulse(self, save_snapshot: bool = True) -> PulseResult:
         """Compute pulse scores from the configured data source.
 
         Args:
             save_snapshot: Whether to save a snapshot for future temporal comparison
+
+        Returns:
+            PulseResult containing computed topics and co-occurrence edge data
 
         """
         posts = self.plugin.fetch_posts(limit=self.num_posts)
@@ -148,14 +159,14 @@ class PulseComputeService:
             logger.warning(
                 f"No posts fetched from {self.plugin.name} (requested {self.num_posts})"
             )
-            return []
+            return PulseResult(topics=[], edges=[])
 
         topic_posts, topic_authors = self._extract_topics_from_posts(posts)
         if not topic_posts:
             logger.info(
                 f"No topics extracted from {len(posts)} posts - check topic patterns"
             )
-            return []
+            return PulseResult(topics=[], edges=[])
 
         logger.info(
             f"Computing pulse for {len(topic_posts)} topics from {len(posts)} posts"
@@ -237,7 +248,7 @@ class PulseComputeService:
                 )
             )
 
-        result = self._assign_ranks(computed_topics)
+        ranked_topics = self._assign_ranks(computed_topics)
 
         # Save snapshot for future temporal comparisons
         if save_snapshot and computed_topics:
@@ -251,14 +262,34 @@ class PulseComputeService:
             ]
             snapshot_store.save_snapshot(snapshot_data)
 
-        return result
+        return PulseResult(topics=ranked_topics, edges=graph_data)
 
 
 def compute_live_pulse(
     num_stories: int = 100,
     plugin: DataSourcePlugin | None = None,
 ) -> list[ComputedTopic]:
-    """Compute live pulse scores from a data source."""
+    """Compute live pulse scores from a data source.
+
+    Returns only the computed topics for backward compatibility.
+    Use compute_live_pulse_with_edges() to also get co-occurrence edges.
+    """
+    if plugin is None:
+        plugin = HackerNewsPlugin()
+
+    service = PulseComputeService(plugin=plugin, num_posts=num_stories)
+    return service.compute_pulse().topics
+
+
+def compute_live_pulse_with_edges(
+    num_stories: int = 100,
+    plugin: DataSourcePlugin | None = None,
+) -> PulseResult:
+    """Compute live pulse scores with co-occurrence edge data.
+
+    Returns both computed topics and true co-occurrence edges
+    for graph visualization endpoints.
+    """
     if plugin is None:
         plugin = HackerNewsPlugin()
 
