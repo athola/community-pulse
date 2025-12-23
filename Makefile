@@ -12,6 +12,7 @@ PRE_COMMIT_HOME?=$(CURDIR)/.cache/pre-commit
 VIRTUALENV_APP_DATA?=$(PRE_COMMIT_HOME)/virtualenv
 
 .PHONY: help uv-sync install-frontend lint format typecheck test check demo demo-api demo-mobile demo-db demo-down hooks hooks-clean build clean
+.PHONY: unit-test integration-test coverage quick-check seed fetch-data docker-build docker-run ci
 .DELETE_ON_ERROR:
 
 help:
@@ -32,6 +33,18 @@ help:
 	@printf "  hooks            Install git hooks via pre-commit (cached locally)\n"
 	@printf "  hooks-clean      Remove pre-commit hooks\n"
 	@printf "  clean            Remove caches, .venv, and coverage files\n"
+	@printf "\n  --- Quick Targets ---\n"
+	@printf "  quick-check      Fast lint-only check for rapid iteration\n"
+	@printf "  unit-test        Run only unit tests (skips integration/slow)\n"
+	@printf "  integration-test Run only integration tests\n"
+	@printf "  coverage         Open HTML coverage report in browser\n"
+	@printf "\n  --- Data & Docker ---\n"
+	@printf "  fetch-data       Fetch latest HN data to data/ directory\n"
+	@printf "  seed             Seed database with fetched HN data\n"
+	@printf "  docker-build     Build Docker image for deployment\n"
+	@printf "  docker-run       Run app in Docker container\n"
+	@printf "\n  --- CI ---\n"
+	@printf "  ci               Full CI pipeline (format check + check)\n"
 
 uv-sync:
 	$(UV) sync --all-groups
@@ -101,3 +114,51 @@ build:
 
 clean:
 	-rm -rf .venv .mypy_cache .pytest_cache .ruff_cache htmlcov coverage.xml
+
+# ─────────────────────────────────────────────────────────────────────────────
+# Quick targets for rapid development iteration
+# ─────────────────────────────────────────────────────────────────────────────
+
+quick-check: lint
+	@echo "Quick check passed (lint only)"
+
+unit-test:
+	$(UV) run pytest -m "unit and not slow and not integration" --tb=short
+
+integration-test:
+	$(UV) run pytest -m "integration" --tb=short
+
+coverage:
+	@if [ -d htmlcov ]; then \
+		xdg-open htmlcov/index.html 2>/dev/null || open htmlcov/index.html 2>/dev/null || echo "Open htmlcov/index.html in browser"; \
+	else \
+		echo "No coverage report found. Run 'make test' first."; \
+	fi
+
+# ─────────────────────────────────────────────────────────────────────────────
+# Data and Docker targets
+# ─────────────────────────────────────────────────────────────────────────────
+
+fetch-data:
+	$(UV) run python scripts/fetch_hn_data.py
+
+seed: demo-db
+	@echo "Waiting for database to be ready..."
+	@sleep 3
+	$(UV) run python scripts/seed_db.py
+
+docker-build:
+	docker build -t community-pulse:latest .
+
+docker-run: docker-build
+	docker run --rm -p 8001:8001 --env-file .env community-pulse:latest
+
+# ─────────────────────────────────────────────────────────────────────────────
+# CI target - mirrors what runs in GitHub Actions
+# ─────────────────────────────────────────────────────────────────────────────
+
+ci:
+	@echo "Running CI pipeline..."
+	$(UV) run ruff format --check $(PY_SRC)
+	$(MAKE) check
+	@echo "CI pipeline passed!"

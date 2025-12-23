@@ -37,7 +37,7 @@ def create_app() -> FastAPI:
     app = FastAPI(
         title="Community Pulse API",
         description="Detect emerging trends in online communities",
-        version="0.1.0",
+        version="0.1.5",
     )
 
     # Configure rate limiter

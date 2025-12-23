@@ -288,3 +288,46 @@ class TestCooccurrenceEdges:
         edge = result.edges[0]
         assert edge.shared_posts == 2
         assert edge.shared_authors == 1  # Same author for both topics
+
+
+class TestNoTopicsExtractedEdgeCase:
+    """Tests for posts that don't match any known topic patterns."""
+
+    def test_posts_without_recognized_topics_returns_empty_result(self):
+        """Posts containing no recognized topic keywords return empty result.
+
+        GIVEN posts that contain generic content without topic keywords
+        WHEN the pulse computation is run
+        THEN an empty PulseResult is returned without errors
+        """
+        posts = [
+            RawPost(
+                id="generic-1",
+                title="Just a random post about nothing specific",
+                content="Some generic content that doesn't match topics",
+                author="author_1",
+                url="https://example.com/1",
+                score=100,
+                comment_count=10,
+                posted_at=datetime.now(),
+            ),
+            RawPost(
+                id="generic-2",
+                title="Another post with no topic keywords",
+                content="More content without matching any patterns",
+                author="author_2",
+                url="https://example.com/2",
+                score=80,
+                comment_count=5,
+                posted_at=datetime.now(),
+            ),
+        ]
+        plugin = MockPlugin(posts=posts)
+        service = PulseComputeService(plugin=plugin, num_posts=100)
+
+        result = service.compute_pulse(save_snapshot=False)
+
+        # Should return empty result when no topics extracted
+        assert isinstance(result, PulseResult)
+        assert result.topics == []
+        assert result.edges == []
