@@ -22,7 +22,10 @@ from community_pulse.models.pulse import (
     TopicEdge,
     TopicNode,
 )
-from community_pulse.services.pulse_compute import compute_live_pulse
+from community_pulse.services.pulse_compute import (
+    compute_live_pulse,
+    compute_live_pulse_with_edges,
+)
 
 logger = logging.getLogger(__name__)
 
@@ -287,11 +290,11 @@ async def get_pulse_graph(
     min_edge_weight: int = Query(2, description="Minimum co-occurrence for edges"),
 ) -> GraphResponse:
     """Get topic co-occurrence graph for visualization with live HN data."""
-    # Use live data from HN API
-    computed = compute_live_pulse(num_stories=100)
+    # Use live data from HN API with true co-occurrence edges
+    pulse_result = compute_live_pulse_with_edges(num_stories=100)
 
     warning_msg: str | None = None
-    if not computed:
+    if not pulse_result.topics:
         # Fallback to mock data if HN API fails
         warning_msg = (
             "Using cached fallback data from Dec 2023. "
@@ -315,7 +318,7 @@ async def get_pulse_graph(
         # Convert computed topics to TopicNode format with stable IDs
         topic_id_map = {}
         topics = []
-        for t in computed:
+        for t in pulse_result.topics:
             topic_id = generate_topic_id(t.slug)
             topic_id_map[t.slug] = topic_id
             topics.append(
@@ -342,31 +345,21 @@ async def get_pulse_graph(
                 )
             )
 
-        # Generate edges based on topic co-occurrence patterns
-        # Topics with similar centrality/velocity tend to co-occur
-        #
-        # POC SIMPLIFICATION: Edge weights are derived from centrality sums rather
-        # than actual post co-occurrence counts. This provides reasonable visualization
-        # without requiring a second pass through posts. Future enhancement: compute
-        # true co-occurrence from shared posts in PulseComputeService.
+        # Generate edges from true co-occurrence data (shared posts between topics)
         edges = []
-        # Pre-filter by centrality to avoid O(n²) on irrelevant pairs
-        high_centrality_topics = [
-            t for t in topics if t.centrality > min_edge_weight / 6
-        ]
-        for i, t1 in enumerate(high_centrality_topics):
-            for t2 in high_centrality_topics[i + 1 :]:
-                # Weight based on combined centrality
-                weight = (t1.centrality + t2.centrality) * 3
-                if weight >= min_edge_weight:
-                    edges.append(
-                        TopicEdge(
-                            source=t1.id,
-                            target=t2.id,
-                            weight=round(weight, 1),
-                            shared_posts=int(weight * 5),
-                        )
+        for edge_data in pulse_result.edges:
+            # Only include edges where both topics are in our result set
+            source_id = topic_id_map.get(edge_data.topic_a)
+            target_id = topic_id_map.get(edge_data.topic_b)
+            if source_id and target_id and edge_data.shared_posts >= min_edge_weight:
+                edges.append(
+                    TopicEdge(
+                        source=source_id,
+                        target=target_id,
+                        weight=float(edge_data.shared_posts),
+                        shared_posts=edge_data.shared_posts,
                     )
+                )
         data_source = "live"
 
     # Filter by edge weight

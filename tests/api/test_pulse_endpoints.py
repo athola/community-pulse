@@ -13,8 +13,13 @@ from typing import Any
 import pytest
 from fastapi.testclient import TestClient
 
+from community_pulse.analysis.graph import TopicGraphData
 from community_pulse.api.app import create_app
-from community_pulse.services.pulse_compute import ComputedTopic, SamplePostData
+from community_pulse.services.pulse_compute import (
+    ComputedTopic,
+    PulseResult,
+    SamplePostData,
+)
 
 
 @pytest.fixture
@@ -174,11 +179,11 @@ class TestAPIFailureFallback:
     def test_graph_falls_back_to_mock_when_api_fails(
         self, client: TestClient, monkeypatch: pytest.MonkeyPatch
     ) -> None:
-        """Test /pulse/graph returns mock data when compute_live_pulse returns None."""
-        # Mock compute_live_pulse to simulate API failure
+        """Test /pulse/graph returns mock data when API fails."""
+        # Mock compute_live_pulse_with_edges to simulate API failure
         monkeypatch.setattr(
-            "community_pulse.api.routes.pulse.compute_live_pulse",
-            lambda num_stories: None,
+            "community_pulse.api.routes.pulse.compute_live_pulse_with_edges",
+            lambda num_stories: PulseResult(topics=[], edges=[]),
         )
 
         response = client.get("/pulse/graph")
@@ -199,11 +204,22 @@ class TestAPIFailureFallback:
         monkeypatch: pytest.MonkeyPatch,
         mock_computed_topics: list[ComputedTopic],
     ) -> None:
-        """Test /pulse/graph returns live data when compute_live_pulse succeeds."""
-        # Mock compute_live_pulse to return data
+        """Test /pulse/graph returns live data when API succeeds."""
+        # Create mock edges for the topics
+        mock_edges = [
+            TopicGraphData(
+                topic_a="ai", topic_b="python", shared_posts=5, shared_authors=3
+            ),
+            TopicGraphData(
+                topic_a="ai", topic_b="rust", shared_posts=3, shared_authors=2
+            ),
+        ]
+
+        # Mock compute_live_pulse_with_edges to return data
+        mock_result = PulseResult(topics=mock_computed_topics, edges=mock_edges)
         monkeypatch.setattr(
-            "community_pulse.api.routes.pulse.compute_live_pulse",
-            lambda num_stories: mock_computed_topics,
+            "community_pulse.api.routes.pulse.compute_live_pulse_with_edges",
+            lambda num_stories: mock_result,
         )
 
         response = client.get("/pulse/graph")
@@ -215,6 +231,11 @@ class TestAPIFailureFallback:
         assert data["data_source"] == "live"
         assert len(data["nodes"]) == 4
         assert data["nodes"][0]["slug"] == "ai"
+        # Should have edges with real co-occurrence data
+        assert len(data["edges"]) == 2
+        # Verify edges use actual shared_posts count
+        assert data["edges"][0]["shared_posts"] == 5
+        assert data["edges"][0]["weight"] == 5.0
 
     def test_live_pulse_returns_empty_when_api_fails(
         self, client: TestClient, monkeypatch: pytest.MonkeyPatch
