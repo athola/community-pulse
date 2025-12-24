@@ -7,6 +7,20 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.1.7] - 2025-12-24
+
+### Fixed
+- Deploy: Use REST API for uploads to control MIME types (Supabase Storage rejects charset suffix)
+- Deploy: Align dry-run upload test with actual deploy method
+
+## [0.1.6] - 2025-12-24
+
+### Fixed
+- Deploy: Use Storage REST API for bucket creation (SQL inserts don't register with Storage service)
+- Deploy: Add proper bucket verification via REST API before uploads
+- Deploy: Remove unreliable `supabase storage ls --experimental` checks
+- Deploy: Add comprehensive dry-run validation
+
 ## [0.1.5] - 2025-12-23
 
 ### Changed

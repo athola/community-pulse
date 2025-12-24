@@ -282,18 +282,20 @@ jobs:
           if [ "$bucket_status" = "200" ]; then
             echo "Testing upload capability to 'website' bucket..."
 
-            # Create test file
-            TEST_FILE="/tmp/dry-run-test-$(date +%s).txt"
-            TEST_PATH=".dry-run-test/validate-$(date +%s).txt"
-            echo "dry-run-validation-$(date)" > "$TEST_FILE"
+            # Create test JSON file (using allowed MIME type)
+            TEST_FILE="/tmp/dry-run-test-$(date +%s).json"
+            TEST_PATH=".dry-run-test/validate-$(date +%s).json"
+            echo '{"test": "dry-run-validation", "timestamp": "'$(date -Iseconds)'"}' > "$TEST_FILE"
 
-            # Upload test file
+            # Upload using same method as deploy.yml (--data-binary with explicit Content-Type)
             set +e
             upload_response=$(curl -s -w "\n%{http_code}" \
               -X POST \
               -H "Authorization: Bearer $SUPABASE_SERVICE_ROLE_KEY" \
               -H "apikey: $SUPABASE_SERVICE_ROLE_KEY" \
-              -F "file=@$TEST_FILE" \
+              -H "Content-Type: application/json" \
+              -H "x-upsert: true" \
+              --data-binary @"$TEST_FILE" \
               "${STORAGE_API_URL}/object/website/$TEST_PATH")
             upload_status=$(echo "$upload_response" | tail -n1)
             upload_body=$(echo "$upload_response" | sed '$d')
