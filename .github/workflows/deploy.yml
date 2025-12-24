@@ -263,20 +263,59 @@ jobs:
           fi
           echo "Bucket 'website' verified and ready for uploads"
 
-          # Upload function with retry logic
+          # Get MIME type without charset suffix (Supabase Storage rejects charset)
+          get_mime_type() {
+            local file="$1"
+            local ext="${file##*.}"
+            case "$ext" in
+              html) echo "text/html" ;;
+              css) echo "text/css" ;;
+              js) echo "application/javascript" ;;
+              json) echo "application/json" ;;
+              png) echo "image/png" ;;
+              jpg|jpeg) echo "image/jpeg" ;;
+              gif) echo "image/gif" ;;
+              svg) echo "image/svg+xml" ;;
+              webp) echo "image/webp" ;;
+              ico) echo "image/x-icon" ;;
+              woff) echo "font/woff" ;;
+              woff2) echo "font/woff2" ;;
+              map) echo "application/json" ;;
+              *) echo "application/octet-stream" ;;
+            esac
+          }
+
+          # Upload function using REST API with retry logic
+          # Uses REST API directly to control Content-Type header (CLI adds charset which is rejected)
           upload_file() {
             local file="$1"
             local rel_path="$2"
+            local mime_type=$(get_mime_type "$file")
             local max_attempts=3
+
             for attempt in $(seq 1 $max_attempts); do
-              if supabase storage cp --experimental "$file" "ss:///website/$rel_path" 2>&1; then
+              set +e
+              response=$(curl -s -w "\n%{http_code}" \
+                -X POST \
+                -H "Authorization: Bearer $SUPABASE_SERVICE_ROLE_KEY" \
+                -H "apikey: $SUPABASE_SERVICE_ROLE_KEY" \
+                -H "Content-Type: $mime_type" \
+                -H "x-upsert: true" \
+                --data-binary @"$file" \
+                "${STORAGE_API_URL}/object/website/$rel_path")
+              status=$(echo "$response" | tail -n1)
+              set -e
+
+              if [ "$status" = "200" ] || [ "$status" = "201" ]; then
                 return 0
               fi
+
               if [ "$attempt" -lt "$max_attempts" ]; then
-                echo "Retry $attempt/$max_attempts for $rel_path..."
+                echo "Retry $attempt/$max_attempts for $rel_path (HTTP $status)..."
                 sleep $((attempt * 2))
               fi
             done
+            echo "Failed: $rel_path (HTTP $status)"
             return 1
           }
 
