@@ -11,6 +11,7 @@ on:
 env:
   SUPABASE_ACCESS_TOKEN: ${{ secrets.SUPABASE_ACCESS_TOKEN }}
   SUPABASE_PROJECT_REF: ${{ secrets.SUPABASE_PROJECT_REF }}
+  SUPABASE_SERVICE_ROLE_KEY: ${{ secrets.SUPABASE_SERVICE_ROLE_KEY }}
 
 jobs:
   validate-backend:
@@ -124,9 +125,24 @@ jobs:
         id: check-config
         working-directory: .
         run: |
-          if [ -z "$SUPABASE_ACCESS_TOKEN" ] || [ -z "$SUPABASE_PROJECT_REF" ]; then
+          missing_secrets=""
+          if [ -z "$SUPABASE_ACCESS_TOKEN" ]; then
+            missing_secrets="$missing_secrets SUPABASE_ACCESS_TOKEN"
+          fi
+          if [ -z "$SUPABASE_PROJECT_REF" ]; then
+            missing_secrets="$missing_secrets SUPABASE_PROJECT_REF"
+          fi
+          if [ -z "$SUPABASE_SERVICE_ROLE_KEY" ]; then
+            missing_secrets="$missing_secrets SUPABASE_SERVICE_ROLE_KEY"
+          fi
+
+          if [ -n "$missing_secrets" ]; then
             echo "configured=false" >> $GITHUB_OUTPUT
-            echo "::warning::Supabase secrets not configured. Skipping storage validation."
+            echo "::error::Missing required secrets:$missing_secrets"
+            echo "::notice::Required secrets for deployment:"
+            echo "  - SUPABASE_ACCESS_TOKEN: CLI access token from supabase.com/dashboard/account/tokens"
+            echo "  - SUPABASE_PROJECT_REF: Project reference from Settings > General"
+            echo "  - SUPABASE_SERVICE_ROLE_KEY: Service role key from Settings > API > service_role"
           else
             echo "configured=true" >> $GITHUB_OUTPUT
           fi
@@ -155,122 +171,182 @@ jobs:
         with:
           version: latest
 
-      - name: Validate Supabase Storage access
+      - name: Validate Storage API access
         if: steps.check-config.outputs.configured == 'true'
         working-directory: .
         run: |
-          echo "Validating Supabase Storage access..."
-          if ! supabase link --project-ref "$SUPABASE_PROJECT_REF" 2>&1; then
-            echo "::error::Failed to connect to Supabase project"
-            exit 1
-          fi
+          echo "Validating Supabase Storage API access..."
+          STORAGE_API_URL="https://${SUPABASE_PROJECT_REF}.supabase.co/storage/v1"
 
-          # Check if bucket exists - disable errexit to handle errors manually
-          echo "Checking storage bucket access..."
+          # Test that we can reach the Storage API with valid credentials
           set +e
-          ls_output=$(supabase storage ls --experimental 2>&1)
-          ls_status=$?
+          health_response=$(curl -s -w "\n%{http_code}" \
+            -H "Authorization: Bearer $SUPABASE_SERVICE_ROLE_KEY" \
+            -H "apikey: $SUPABASE_SERVICE_ROLE_KEY" \
+            "${STORAGE_API_URL}/bucket")
+          health_status=$(echo "$health_response" | tail -n1)
+          health_body=$(echo "$health_response" | sed '$d')
           set -e
 
-          echo "Storage ls exit code: $ls_status"
-          echo "Storage ls output: $ls_output"
+          echo "Storage API response status: $health_status"
 
-          if [ "$ls_status" -ne 0 ]; then
-            echo "::error::Failed to list storage buckets (exit code $ls_status): $ls_output"
-            echo "::notice::Common causes:"
-            echo "  - SUPABASE_ACCESS_TOKEN expired or invalid"
-            echo "  - Token lacks storage permissions"
-            echo "  - Supabase service unavailable"
+          if [ "$health_status" = "200" ]; then
+            echo "✓ Storage API is accessible"
+            echo "Existing buckets: $health_body"
+          elif [ "$health_status" = "401" ] || [ "$health_status" = "403" ]; then
+            echo "::error::Storage API authentication failed (HTTP $health_status)"
+            echo "::notice::Verify SUPABASE_SERVICE_ROLE_KEY is correct"
+            echo "::notice::Get the service_role key from: Settings > API > service_role"
+            exit 1
+          else
+            echo "::error::Storage API unreachable (HTTP $health_status)"
+            echo "::notice::Response: $health_body"
             exit 1
           fi
 
-          # Check if output looks like a bucket list or initialization message
-          # "Initialising login role..." is not a bucket list
-          if echo "$ls_output" | grep -qi "initialising\|initializing\|error\|usage:"; then
-            echo "::warning::Storage ls returned non-bucket output: $ls_output"
-            echo "This may indicate storage API is still initializing or misconfigured"
-            echo "Storage API responded - bucket creation should work during deployment"
-          elif echo "$ls_output" | grep -q "^website$"; then
-            echo "Storage bucket 'website' exists and is accessible"
+          # Check if bucket exists
+          echo "Checking if 'website' bucket exists..."
+          set +e
+          bucket_response=$(curl -s -w "\n%{http_code}" \
+            -H "Authorization: Bearer $SUPABASE_SERVICE_ROLE_KEY" \
+            -H "apikey: $SUPABASE_SERVICE_ROLE_KEY" \
+            "${STORAGE_API_URL}/bucket/website")
+          bucket_status=$(echo "$bucket_response" | tail -n1)
+          set -e
+
+          if [ "$bucket_status" = "200" ]; then
+            echo "✓ Bucket 'website' exists"
+            bucket_exists=true
           else
-            echo "::notice::Storage bucket 'website' does not exist yet"
-            if [ -n "$ls_output" ]; then
-              echo "Other buckets found: $ls_output"
-            else
-              echo "No buckets exist - this is normal for new projects"
-            fi
-            echo "The bucket will be created during actual deployment"
-            echo "Storage access verified - bucket creation should succeed"
+            echo "::notice::Bucket 'website' does not exist yet (will be created during deployment)"
+            bucket_exists=false
+          fi
+
+      - name: Validate bucket creation capability
+        if: steps.check-config.outputs.configured == 'true'
+        working-directory: .
+        run: |
+          STORAGE_API_URL="https://${SUPABASE_PROJECT_REF}.supabase.co/storage/v1"
+
+          # Create a temporary test bucket to verify we have creation permissions
+          TEST_BUCKET="dry-run-test-$(date +%s)"
+          echo "Testing bucket creation capability with temporary bucket: $TEST_BUCKET"
+
+          set +e
+          create_response=$(curl -s -w "\n%{http_code}" \
+            -X POST \
+            -H "Authorization: Bearer $SUPABASE_SERVICE_ROLE_KEY" \
+            -H "apikey: $SUPABASE_SERVICE_ROLE_KEY" \
+            -H "Content-Type: application/json" \
+            -d "{\"id\": \"$TEST_BUCKET\", \"name\": \"$TEST_BUCKET\", \"public\": false}" \
+            "${STORAGE_API_URL}/bucket")
+          create_status=$(echo "$create_response" | tail -n1)
+          create_body=$(echo "$create_response" | sed '$d')
+          set -e
+
+          if [ "$create_status" = "200" ] || [ "$create_status" = "201" ]; then
+            echo "✓ Bucket creation test passed"
+
+            # Clean up test bucket
+            echo "Cleaning up test bucket..."
+            curl -s -X DELETE \
+              -H "Authorization: Bearer $SUPABASE_SERVICE_ROLE_KEY" \
+              -H "apikey: $SUPABASE_SERVICE_ROLE_KEY" \
+              "${STORAGE_API_URL}/bucket/$TEST_BUCKET" > /dev/null 2>&1 || true
+            echo "✓ Test bucket cleaned up"
+          else
+            echo "::error::Bucket creation test failed (HTTP $create_status)"
+            echo "::notice::Response: $create_body"
+            echo "::notice::This means deployment WILL FAIL. Fix the issue before merging."
+            echo "::notice::Common causes:"
+            echo "  - SUPABASE_SERVICE_ROLE_KEY lacks storage permissions"
+            echo "  - Storage service is unavailable"
+            exit 1
           fi
 
       - name: Validate upload capability
         if: steps.check-config.outputs.configured == 'true'
         working-directory: .
         run: |
-          # Test upload with a small file to verify credentials work
-          # Check if bucket exists - disable errexit to handle errors manually
+          STORAGE_API_URL="https://${SUPABASE_PROJECT_REF}.supabase.co/storage/v1"
+
+          # Check if website bucket exists for upload test
           set +e
-          ls_output=$(supabase storage ls --experimental 2>&1)
-          ls_status=$?
+          bucket_response=$(curl -s -w "\n%{http_code}" \
+            -H "Authorization: Bearer $SUPABASE_SERVICE_ROLE_KEY" \
+            -H "apikey: $SUPABASE_SERVICE_ROLE_KEY" \
+            "${STORAGE_API_URL}/bucket/website")
+          bucket_status=$(echo "$bucket_response" | tail -n1)
           set -e
 
-          bucket_exists=false
-          bucket_error=false
+          if [ "$bucket_status" = "200" ]; then
+            echo "Testing upload capability to 'website' bucket..."
 
-          # Determine bucket state
-          if [ "$ls_status" -ne 0 ]; then
-            bucket_error=true
-          elif echo "$ls_output" | grep -qi "initialising\|initializing\|error\|usage:"; then
-            # Storage ls returned non-bucket output (initialization message)
-            bucket_error=false
-            bucket_exists=false
-          elif echo "$ls_output" | grep -q "^website$"; then
-            bucket_exists=true
-          fi
+            # Create test file
+            TEST_FILE="/tmp/dry-run-test-$(date +%s).txt"
+            TEST_PATH=".dry-run-test/validate-$(date +%s).txt"
+            echo "dry-run-validation-$(date)" > "$TEST_FILE"
 
-          if [ "$bucket_exists" = "true" ]; then
-            echo "Testing upload capability..."
-            echo "dry-run-test-$(date +%s)" > /tmp/dry-run-test.txt
-            test_path=".dry-run-test/validate-$(date +%s).txt"
-
+            # Upload test file
             set +e
-            upload_output=$(supabase storage cp --experimental /tmp/dry-run-test.txt "ss:///website/$test_path" 2>&1)
-            upload_status=$?
+            upload_response=$(curl -s -w "\n%{http_code}" \
+              -X POST \
+              -H "Authorization: Bearer $SUPABASE_SERVICE_ROLE_KEY" \
+              -H "apikey: $SUPABASE_SERVICE_ROLE_KEY" \
+              -F "file=@$TEST_FILE" \
+              "${STORAGE_API_URL}/object/website/$TEST_PATH")
+            upload_status=$(echo "$upload_response" | tail -n1)
+            upload_body=$(echo "$upload_response" | sed '$d')
             set -e
 
-            if [ "$upload_status" -eq 0 ]; then
-              echo "Upload test successful"
+            if [ "$upload_status" = "200" ] || [ "$upload_status" = "201" ]; then
+              echo "✓ Upload test passed"
+
               # Clean up test file
-              supabase storage rm --experimental "ss:///website/$test_path" 2>/dev/null || true
+              curl -s -X DELETE \
+                -H "Authorization: Bearer $SUPABASE_SERVICE_ROLE_KEY" \
+                -H "apikey: $SUPABASE_SERVICE_ROLE_KEY" \
+                "${STORAGE_API_URL}/object/website/$TEST_PATH" > /dev/null 2>&1 || true
+              echo "✓ Test file cleaned up"
             else
-              echo "::error::Upload test failed - deployment would fail"
-              echo "Upload output: $upload_output"
-              echo "::notice::Common causes:"
-              echo "  - Bucket permissions misconfigured"
-              echo "  - Storage quota exceeded"
-              echo "  - Token lacks storage write permissions"
+              echo "::error::Upload test failed (HTTP $upload_status)"
+              echo "::notice::Response: $upload_body"
+              echo "::notice::This means deployment WILL FAIL. Fix the issue before merging."
               exit 1
             fi
-          elif [ "$bucket_error" = "true" ]; then
-            echo "::error::Cannot verify upload capability - storage API error"
-            echo "Storage ls output: $ls_output"
-            exit 1
+
+            rm -f "$TEST_FILE"
           else
-            echo "Skipping upload test - bucket doesn't exist yet"
-            echo "Upload capability will be verified during actual deployment"
+            echo "::notice::Bucket 'website' doesn't exist - skipping upload test"
+            echo "Bucket will be created during deployment, and bucket creation was verified above"
           fi
 
       - name: Report validation results
         run: |
-          echo "::notice::Deployment dry run completed successfully"
           echo ""
-          echo "Summary:"
-          echo "  - Frontend build: SUCCESS"
+          echo "=========================================="
+          echo "  DEPLOYMENT DRY RUN COMPLETED"
+          echo "=========================================="
+          echo ""
+          echo "Frontend Build:"
+          echo "  ✓ Build successful"
           file_count=$(find dist -type f | wc -l)
-          echo "  - Files ready for upload: $file_count"
+          echo "  ✓ Files ready for upload: $file_count"
+          echo ""
           if [ "${{ steps.check-config.outputs.configured }}" = "true" ]; then
-            echo "  - Supabase connection: VERIFIED"
-            echo "  - Storage access: VERIFIED"
+            echo "Storage Validation:"
+            echo "  ✓ Storage API accessible"
+            echo "  ✓ Bucket creation capability verified"
+            echo "  ✓ Credentials valid"
+            echo ""
+            echo "=========================================="
+            echo "  ✓ DEPLOYMENT WILL SUCCEED"
+            echo "=========================================="
           else
-            echo "  - Supabase validation: SKIPPED (secrets not configured)"
+            echo "Storage Validation: SKIPPED"
+            echo "  ⚠ Missing secrets - deployment will fail"
+            echo ""
+            echo "=========================================="
+            echo "  ⚠ FIX SECRETS BEFORE MERGING"
+            echo "=========================================="
           fi
