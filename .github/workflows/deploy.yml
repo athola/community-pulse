@@ -212,7 +212,7 @@ jobs:
                 "name": "website",
                 "public": true,
                 "file_size_limit": 52428800,
-                "allowed_mime_types": ["text/html", "text/css", "application/javascript", "application/json", "image/png", "image/jpeg", "image/gif", "image/svg+xml", "image/webp", "image/x-icon", "font/woff", "font/woff2", "application/font-woff", "application/font-woff2"]
+                "allowed_mime_types": ["text/html", "text/css", "text/plain", "application/javascript", "application/json", "application/octet-stream", "image/png", "image/jpeg", "image/gif", "image/svg+xml", "image/webp", "image/x-icon", "font/woff", "font/woff2", "application/font-woff", "application/font-woff2"]
               }' \
               "${STORAGE_API_URL}/bucket")
             create_status=$(echo "$create_response" | tail -n1)

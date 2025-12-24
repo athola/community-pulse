@@ -294,6 +294,7 @@ jobs:
               -H "Authorization: Bearer $SUPABASE_SERVICE_ROLE_KEY" \
               -H "apikey: $SUPABASE_SERVICE_ROLE_KEY" \
               -H "Content-Type: application/json" \
+              -H "x-upsert: true" \
               --data-binary @"$TEST_FILE" \
               "${STORAGE_API_URL}/object/website/$TEST_PATH")
             upload_status=$(echo "$upload_response" | tail -n1)
